@@ -1,0 +1,21 @@
+[Unit]
+Description=Resolver Web
+After=network.target
+
+[Service]
+Type=simple
+User=resolver
+Group=resolver
+WorkingDirectory=/opt/Resolver-Web
+EnvironmentFile=/etc/resolver-web.env
+ExecStart=/usr/bin/node /opt/Resolver-Web/server/index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/resolver-web
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+services:
+  resolver:
+    build: .
+    image: resolver-web:local
+    restart: unless-stopped
+    ports:
+      - "${RESOLVER_BIND_ADDRESS:-127.0.0.1}:${RESOLVER_PORT:-4173}:4173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请在 .env 中设置管理员密钥}
+      RESOLVER_FEED_ORIGINS: ${RESOLVER_FEED_ORIGINS:-}
+      RESOLVER_DATA_DIR: /app/data
+    volumes:
+      - resolver-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  resolver-data:

@@ -1,0 +1,52 @@
+[
+  {
+    "file": "01-quickstart-8-teams.ndjson",
+    "title": "快速上手",
+    "note": "8 队 / 5 题，封榜、通过与失败揭晓",
+    "teams": 8,
+    "problems": 5,
+    "submissions": 33,
+    "reveals": 8,
+    "sha256": "7f807139328c7a72150c610fe448804f38db557036976742a84477fc9453aef0"
+  },
+  {
+    "file": "02-finals-18-teams.ndjson",
+    "title": "决赛与颁奖",
+    "note": "18 队 / 13 题，金银铜、首解和组织徽标；合成练习数据，非官方赛果",
+    "teams": 18,
+    "problems": 13,
+    "submissions": 315,
+    "reveals": 20,
+    "sha256": "623be36b225dc2f254b1c35f313d7ec7feb09d04c6635ac973a560fd88edccf2"
+  },
+  {
+    "file": "03-regional-48-teams.ndjson",
+    "title": "多页榜单",
+    "note": "48 队 / 10 题，适合检查滚动、每屏行数与投影布局",
+    "teams": 48,
+    "problems": 10,
+    "submissions": 368,
+    "reveals": 48,
+    "sha256": "6c702068440aa21ca75220dcaa27c2e0ebe19d513f2fd40318c588c9370db5f9"
+  },
+  {
+    "file": "04-ties-and-medals.ndjson",
+    "title": "并列与奖线",
+    "note": "8 队 / 5 题；team-1 与 team-2 同题数同罚时，可检查并列同奖",
+    "teams": 8,
+    "problems": 5,
+    "submissions": 30,
+    "reveals": 8,
+    "sha256": "4ac264ea67f3673c6a024170bf8124a26ede978b933d6ef07c465016dc3fa6c8"
+  },
+  {
+    "file": "05-hydro-starred.ndjson",
+    "title": "Hydro 风格",
+    "note": "4 队 / 2 题，打星、CE/FE/IGN 与秒级罚时；合成导出样例",
+    "teams": 4,
+    "problems": 2,
+    "submissions": 9,
+    "reveals": 2,
+    "sha256": "cdbadf7ff3f63451ad6b57f0cf4021760b605afdf9a750bf21d7dfeb0de495aa"
+  }
+]

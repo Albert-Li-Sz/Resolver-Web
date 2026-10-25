@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Resolver renderer test</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --panel: rgba(14, 16, 22, 0.86);
+        --line: rgba(255, 255, 255, 0.14);
+        --text: #e8eaef;
+        --muted: #9aa2b1;
+        --accent: #5c8ae7;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      body {
+        color: var(--text);
+        font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #000;
+      }
+      #screen {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        object-fit: contain;
+        background: #000;
+      }
+      #toolbar {
+        position: fixed;
+        z-index: 10;
+        top: 14px;
+        left: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        max-width: calc(100vw - 28px);
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+      }
+      #toolbar strong {
+        font-weight: 650;
+        letter-spacing: 0.02em;
+        color: #fff;
+        padding-right: 4px;
+      }
+      #toolbar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+      button {
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        font: inherit;
+        padding: 6px 10px;
+        cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease;
+      }
+      button:hover { background: rgba(92, 138, 231, 0.24); border-color: rgba(92, 138, 231, 0.7); }
+      button.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      #hint {
+        color: var(--muted);
+        padding-left: 4px;
+        white-space: nowrap;
+      }
+      #status {
+        position: fixed;
+        z-index: 10;
+        right: 14px;
+        bottom: 14px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        color: var(--muted);
+        font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre;
+        pointer-events: none;
+      }
+      body.present #toolbar, body.present #status { display: none; }
+      body.present #screen { width: 100vw; height: 100vh; }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #000;
+        color: #8b93a2;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 12px;
+        z-index: 20;
+        transition: opacity 200ms ease;
+      }
+      #loading.is-hidden { opacity: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"><canvas id="screen" width="1920" height="1080"></canvas></div>
+
+    <div id="toolbar">
+      <strong>Resolver renderer</strong>
+      <button id="btn-reference" class="is-active">Reference frame</button>
+      <button id="btn-demo">Play demo</button>
+      <span class="sep"></span>
+      <button data-screen="splash">Splash</button>
+      <button data-screen="scoreboard">Scoreboard</button>
+      <button data-screen="teamAward">Team award</button>
+      <button data-screen="teamList">Team list</button>
+      <span class="sep"></span>
+      <button id="btn-scroll">Scroll to 4</button>
+      <button id="btn-highlight">Highlight #10</button>
+      <button id="btn-blink">Blink on</button>
+      <span id="hint">freeze=1 for deterministic blink</span>
+    </div>
+    <div id="status"></div>
+    <div id="loading">Loading renderer…</div>
+
+    <script type="module" src="/js/render-test.js"></script>
+  </body>
+</html>

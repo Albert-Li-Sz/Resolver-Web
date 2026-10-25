@@ -1,0 +1,45 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: docker build -t resolver-web:test .
+      - run: docker run -d --name resolver-test -p 127.0.0.1:4180:4173 -e RESOLVER_ADMIN_KEY=ci-smoke-key -v resolver-test-data:/app/data resolver-web:test
+      - run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4180/api/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key npm run smoke -- http://127.0.0.1:4180
+      - run: docker restart resolver-test
+      - run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4180/api/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key npm run smoke -- http://127.0.0.1:4180 verify-restart
+      - if: always()
+        run: docker logs resolver-test

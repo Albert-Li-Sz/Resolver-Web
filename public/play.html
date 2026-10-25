@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="dark" />
+    <title>ICPC Resolver · 滚榜</title>
+    <link rel="icon" href="/assets/img/id.png" />
+    <link rel="stylesheet" href="/play.css" />
+  </head>
+  <body class="is-loading">
+    <div id="stage" aria-label="Resolver 滚榜画面">
+      <canvas id="screen" width="1920" height="1080"></canvas>
+    </div>
+
+    <div id="loading" class="overlay">
+      <div class="loader-card">
+        <div class="spinner" aria-hidden="true"></div>
+        <div>
+          <h1>正在准备滚榜</h1>
+          <p>加载比赛数据与解析步骤…</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="error" class="overlay" hidden>
+      <div class="loader-card error-card">
+        <div class="error-mark">!</div>
+        <div>
+          <h1>无法开始滚榜</h1>
+          <p id="error-message">滚榜会话不存在或服务器未启动。</p>
+          <a class="text-link" href="/">← 返回配置中心</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud" class="hud" hidden>
+      <div class="hud-left">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="hud-contest" class="hud-title">ICPC Resolver</span>
+        <span id="hud-step" class="hud-sub">准备中</span>
+      </div>
+      <div class="hud-right">
+        <span id="hud-preview" class="badge" hidden>配置预览</span>
+        <span id="hud-speed" class="badge subtle">手动</span>
+        <span id="hud-step-count" class="hud-count">0 / 0</span>
+      </div>
+      <div class="progress"><span id="progress-bar"></span></div>
+    </div>
+
+    <div id="controls-wrap">
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="controls" class="controls" role="toolbar" aria-label="滚榜控制">
+        <button id="btn-restart" class="icon-btn" type="button" title="重新开始 (R)" aria-label="重新开始">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M5.5 15a7 7 0 1 0 1.2-7.5L4 10" /></svg>
+        </button>
+        <button id="btn-prev" class="icon-btn" type="button" title="上一步（左键 / ← / PageUp）" aria-label="上一步">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7M8 5v14" /></svg>
+        </button>
+        <button id="btn-next" class="icon-btn" type="button" title="下一步（右键 / → / PageDown / 空格）" aria-label="下一步">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7M16 5v14" /></svg>
+        </button>
+
+        <span class="divider" aria-hidden="true"></span>
+
+        <button id="btn-share" class="pill-btn" type="button" title="分享只读观众链接">观众链接</button>
+        <button id="btn-help" class="icon-btn" type="button" title="快捷键帮助 (?)" aria-label="快捷键帮助">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.4M12 17h.01" /></svg>
+        </button>
+        <button id="btn-full" class="icon-btn" type="button" title="全屏 (F)" aria-label="全屏">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H5a1 1 0 0 0-1 1v3M16 4h3a1 1 0 0 1 1 1v3M8 20H5a1 1 0 0 1-1-1v-3M16 20h3a1 1 0 0 0 1-1v-3" /></svg>
+        </button>
+        <a id="btn-close" class="icon-btn" href="/" title="返回配置中心" aria-label="返回配置中心">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </a>
+      </div>
+    </div>
+
+    <div id="share" class="help-panel" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+      <div class="help-card">
+        <div class="help-head"><h2 id="share-title">邀请观众看滚榜</h2><button id="share-close" class="icon-btn" type="button" aria-label="关闭分享">×</button></div>
+        <p class="share-description">观众自动跟随主持端，同步揭晓、回退和奖项展示。</p>
+        <label for="share-url">只读观众链接</label>
+        <input id="share-url" class="share-url" type="url" readonly />
+        <div class="share-actions"><button id="copy-viewer" class="pill-btn" type="button">复制链接</button><a id="open-viewer" class="pill-btn" target="_blank" rel="noopener">打开观众视图 ↗</a></div>
+        <p id="share-hint" class="help-note"></p>
+      </div>
+    </div>
+
+    <div id="help" class="help-panel" hidden>
+      <div class="help-card">
+        <div class="help-head">
+          <h2>滚榜控制</h2>
+          <button id="help-close" class="icon-btn" type="button" aria-label="关闭帮助">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <dl>
+          <div><dt>右键 / → / PageDown / 空格</dt><dd>下一步</dd></div>
+          <div><dt>左键 / ← / PageUp / Backspace</dt><dd>上一步</dd></div>
+          <div><dt>Enter</dt><dd>下一步（PPT 翻页器 / 遥控器）</dd></div>
+          <div><dt>Home / End</dt><dd>回到开头 / 跳到结尾</dd></div>
+          <div><dt>R</dt><dd>回到开头</dd></div>
+          <div><dt>F</dt><dd>全屏</dd></div>
+          <div><dt>Esc</dt><dd>退出全屏 / 关闭帮助</dd></div>
+        </dl>
+        <p class="help-note">
+          滚榜全程手动推进：鼠标右键下一步、左键上一步；PPT 翻页器通常发送
+          PageDown / PageUp（部分遥控器发送 → / ← 或空格）。画面基于 ICPC Tools Resolver 的绘制逻辑复刻。
+        </p>
+      </div>
+    </div>
+
+    <script type="module" src="/js/play.js"></script>
+  </body>
+</html>

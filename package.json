@@ -1,0 +1,29 @@
+{
+  "name": "icpc-resolver-web",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Node.js-driven web reimplementation of the ICPC Tools Resolver with a configuration dashboard.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.mjs",
+    "examples": "node scripts/generate-examples.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "icpc",
+    "resolver",
+    "scoreboard",
+    "\u6eda\u699c"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}

@@ -1,0 +1,7 @@
+*.pdf binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.ttf binary
+*.woff2 binary
+*.ndjson text eol=lf

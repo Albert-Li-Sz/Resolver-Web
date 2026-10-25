@@ -1,0 +1,87 @@
+{"type":"contests","id":"quickstart","data":{"id":"quickstart","name":"快速上手练习 · 8 队","duration":"5:00:00.000","start_time":"2026-01-01T09:00:00+08:00","scoreboard_freeze_duration":"1:00:00.000","penalty_time":20,"scoreboard_type":"pass-fail"}}
+{"type":"judgement-types","id":"AC","data":{"id":"AC","name":"AC","solved":true,"penalty":false}}
+{"type":"judgement-types","id":"WA","data":{"id":"WA","name":"WA","solved":false,"penalty":true}}
+{"type":"judgement-types","id":"CE","data":{"id":"CE","name":"CE","solved":false,"penalty":false}}
+{"type":"organizations","id":"org-1","data":{"id":"org-1","name":"示例学院 01","formal_name":"示例学院 01"}}
+{"type":"organizations","id":"org-2","data":{"id":"org-2","name":"示例学院 02","formal_name":"示例学院 02"}}
+{"type":"organizations","id":"org-3","data":{"id":"org-3","name":"示例学院 03","formal_name":"示例学院 03"}}
+{"type":"organizations","id":"org-4","data":{"id":"org-4","name":"示例学院 04","formal_name":"示例学院 04"}}
+{"type":"teams","id":"team-1","data":{"id":"team-1","name":"追光 01 队","display_name":"追光 01 队","organization_id":"org-1"}}
+{"type":"teams","id":"team-2","data":{"id":"team-2","name":"追光 02 队","display_name":"追光 02 队","organization_id":"org-1"}}
+{"type":"teams","id":"team-3","data":{"id":"team-3","name":"追光 03 队","display_name":"追光 03 队","organization_id":"org-2"}}
+{"type":"teams","id":"team-4","data":{"id":"team-4","name":"追光 04 队","display_name":"追光 04 队","organization_id":"org-2"}}
+{"type":"teams","id":"team-5","data":{"id":"team-5","name":"追光 05 队","display_name":"追光 05 队","organization_id":"org-3"}}
+{"type":"teams","id":"team-6","data":{"id":"team-6","name":"追光 06 队","display_name":"追光 06 队","organization_id":"org-3"}}
+{"type":"teams","id":"team-7","data":{"id":"team-7","name":"追光 07 队","display_name":"追光 07 队","organization_id":"org-4"}}
+{"type":"teams","id":"team-8","data":{"id":"team-8","name":"追光 08 队","display_name":"追光 08 队","organization_id":"org-4"}}
+{"type":"problems","id":"p-0","data":{"id":"p-0","label":"A","name":"练习题 A","rgb":"#4585d3","ordinal":0}}
+{"type":"problems","id":"p-1","data":{"id":"p-1","label":"B","name":"练习题 B","rgb":"#2eaa85","ordinal":1}}
+{"type":"problems","id":"p-2","data":{"id":"p-2","label":"C","name":"练习题 C","rgb":"#e0ac39","ordinal":2}}
+{"type":"problems","id":"p-3","data":{"id":"p-3","label":"D","name":"练习题 D","rgb":"#a572cb","ordinal":3}}
+{"type":"problems","id":"p-4","data":{"id":"p-4","label":"E","name":"练习题 E","rgb":"#dd6868","ordinal":4}}
+{"type":"submissions","id":"s-1","data":{"id":"s-1","team_id":"team-1","problem_id":"p-0","contest_time":"0:15:00.000"}}
+{"type":"judgements","id":"j-s-1","data":{"id":"j-s-1","submission_id":"s-1","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-2","data":{"id":"s-2","team_id":"team-1","problem_id":"p-0","contest_time":"0:18:00.000"}}
+{"type":"judgements","id":"j-s-2","data":{"id":"j-s-2","submission_id":"s-2","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-3","data":{"id":"s-3","team_id":"team-1","problem_id":"p-1","contest_time":"0:38:00.000"}}
+{"type":"judgements","id":"j-s-3","data":{"id":"j-s-3","submission_id":"s-3","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-4","data":{"id":"s-4","team_id":"team-1","problem_id":"p-2","contest_time":"4:04:00.000"}}
+{"type":"judgements","id":"j-s-4","data":{"id":"j-s-4","submission_id":"s-4","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-5","data":{"id":"s-5","team_id":"team-1","problem_id":"p-2","contest_time":"4:44:00.000"}}
+{"type":"judgements","id":"j-s-5","data":{"id":"j-s-5","submission_id":"s-5","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-6","data":{"id":"s-6","team_id":"team-2","problem_id":"p-0","contest_time":"0:25:00.000"}}
+{"type":"judgements","id":"j-s-6","data":{"id":"j-s-6","submission_id":"s-6","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-7","data":{"id":"s-7","team_id":"team-2","problem_id":"p-1","contest_time":"4:05:00.000"}}
+{"type":"judgements","id":"j-s-7","data":{"id":"j-s-7","submission_id":"s-7","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-8","data":{"id":"s-8","team_id":"team-3","problem_id":"p-0","contest_time":"0:32:00.000"}}
+{"type":"judgements","id":"j-s-8","data":{"id":"j-s-8","submission_id":"s-8","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-9","data":{"id":"s-9","team_id":"team-3","problem_id":"p-1","contest_time":"0:49:00.000"}}
+{"type":"judgements","id":"j-s-9","data":{"id":"j-s-9","submission_id":"s-9","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-10","data":{"id":"s-10","team_id":"team-3","problem_id":"p-1","contest_time":"0:52:00.000"}}
+{"type":"judgements","id":"j-s-10","data":{"id":"j-s-10","submission_id":"s-10","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-11","data":{"id":"s-11","team_id":"team-3","problem_id":"p-2","contest_time":"1:12:00.000"}}
+{"type":"judgements","id":"j-s-11","data":{"id":"j-s-11","submission_id":"s-11","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-12","data":{"id":"s-12","team_id":"team-3","problem_id":"p-3","contest_time":"4:06:00.000"}}
+{"type":"judgements","id":"j-s-12","data":{"id":"j-s-12","submission_id":"s-12","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-13","data":{"id":"s-13","team_id":"team-3","problem_id":"p-3","contest_time":"4:46:00.000"}}
+{"type":"judgements","id":"j-s-13","data":{"id":"j-s-13","submission_id":"s-13","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-14","data":{"id":"s-14","team_id":"team-4","problem_id":"p-0","contest_time":"0:36:00.000"}}
+{"type":"judgements","id":"j-s-14","data":{"id":"j-s-14","submission_id":"s-14","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-15","data":{"id":"s-15","team_id":"team-4","problem_id":"p-0","contest_time":"0:39:00.000"}}
+{"type":"judgements","id":"j-s-15","data":{"id":"j-s-15","submission_id":"s-15","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-16","data":{"id":"s-16","team_id":"team-4","problem_id":"p-1","contest_time":"0:59:00.000"}}
+{"type":"judgements","id":"j-s-16","data":{"id":"j-s-16","submission_id":"s-16","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-17","data":{"id":"s-17","team_id":"team-4","problem_id":"p-2","contest_time":"4:07:00.000"}}
+{"type":"judgements","id":"j-s-17","data":{"id":"j-s-17","submission_id":"s-17","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-18","data":{"id":"s-18","team_id":"team-4","problem_id":"p-2","contest_time":"4:47:00.000"}}
+{"type":"judgements","id":"j-s-18","data":{"id":"j-s-18","submission_id":"s-18","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-19","data":{"id":"s-19","team_id":"team-5","problem_id":"p-0","contest_time":"0:46:00.000"}}
+{"type":"judgements","id":"j-s-19","data":{"id":"j-s-19","submission_id":"s-19","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-20","data":{"id":"s-20","team_id":"team-5","problem_id":"p-1","contest_time":"4:08:00.000"}}
+{"type":"judgements","id":"j-s-20","data":{"id":"j-s-20","submission_id":"s-20","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-21","data":{"id":"s-21","team_id":"team-6","problem_id":"p-0","contest_time":"0:53:00.000"}}
+{"type":"judgements","id":"j-s-21","data":{"id":"j-s-21","submission_id":"s-21","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-22","data":{"id":"s-22","team_id":"team-6","problem_id":"p-1","contest_time":"1:10:00.000"}}
+{"type":"judgements","id":"j-s-22","data":{"id":"j-s-22","submission_id":"s-22","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-23","data":{"id":"s-23","team_id":"team-6","problem_id":"p-1","contest_time":"1:13:00.000"}}
+{"type":"judgements","id":"j-s-23","data":{"id":"j-s-23","submission_id":"s-23","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-24","data":{"id":"s-24","team_id":"team-6","problem_id":"p-2","contest_time":"1:33:00.000"}}
+{"type":"judgements","id":"j-s-24","data":{"id":"j-s-24","submission_id":"s-24","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-25","data":{"id":"s-25","team_id":"team-6","problem_id":"p-3","contest_time":"4:09:00.000"}}
+{"type":"judgements","id":"j-s-25","data":{"id":"j-s-25","submission_id":"s-25","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-26","data":{"id":"s-26","team_id":"team-6","problem_id":"p-3","contest_time":"4:49:00.000"}}
+{"type":"judgements","id":"j-s-26","data":{"id":"j-s-26","submission_id":"s-26","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-27","data":{"id":"s-27","team_id":"team-7","problem_id":"p-0","contest_time":"0:57:00.000"}}
+{"type":"judgements","id":"j-s-27","data":{"id":"j-s-27","submission_id":"s-27","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-28","data":{"id":"s-28","team_id":"team-7","problem_id":"p-0","contest_time":"1:00:00.000"}}
+{"type":"judgements","id":"j-s-28","data":{"id":"j-s-28","submission_id":"s-28","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-29","data":{"id":"s-29","team_id":"team-7","problem_id":"p-1","contest_time":"1:20:00.000"}}
+{"type":"judgements","id":"j-s-29","data":{"id":"j-s-29","submission_id":"s-29","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-30","data":{"id":"s-30","team_id":"team-7","problem_id":"p-2","contest_time":"4:10:00.000"}}
+{"type":"judgements","id":"j-s-30","data":{"id":"j-s-30","submission_id":"s-30","judgement_type_id":"WA"}}
+{"type":"submissions","id":"s-31","data":{"id":"s-31","team_id":"team-7","problem_id":"p-2","contest_time":"4:50:00.000"}}
+{"type":"judgements","id":"j-s-31","data":{"id":"j-s-31","submission_id":"s-31","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-32","data":{"id":"s-32","team_id":"team-8","problem_id":"p-0","contest_time":"1:07:00.000"}}
+{"type":"judgements","id":"j-s-32","data":{"id":"j-s-32","submission_id":"s-32","judgement_type_id":"AC"}}
+{"type":"submissions","id":"s-33","data":{"id":"s-33","team_id":"team-8","problem_id":"p-1","contest_time":"4:11:00.000"}}
+{"type":"judgements","id":"j-s-33","data":{"id":"j-s-33","submission_id":"s-33","judgement_type_id":"WA"}}

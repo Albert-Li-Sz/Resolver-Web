@@ -1,0 +1,15 @@
+.git
+.github
+.playwright-mcp
+.env
+.env.*
+node_modules
+data
+tmp
+reference
+doc
+docs
+tests
+examples
+*.log
+.DS_Store

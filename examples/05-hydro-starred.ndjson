@@ -1,0 +1,34 @@
+{"type":"contest","id":"hydro-test","data":{"id":"hydro-test","name":"Hydro 风格练习 · 打星与秒级罚时","start_time":"2026-10-22T01:00:00+08:00","duration":"05:00:00.000","scoreboard_freeze_duration":"01:00:00.000","scoreboard_type":"pass-fail","penalty_time":20},"token":"t0"}
+{"type":"judgement-types","id":"AC","data":{"id":"AC","name":"AC","solved":true,"penalty":false},"token":"t1"}
+{"type":"judgement-types","id":"WA","data":{"id":"WA","name":"WA","solved":false,"penalty":true},"token":"t2"}
+{"type":"judgement-types","id":"CE","data":{"id":"CE","name":"CE","solved":false,"penalty":false},"token":"t3"}
+{"type":"judgement-types","id":"FE","data":{"id":"FE","name":"FE","solved":false,"penalty":true},"token":"t4"}
+{"type":"judgement-types","id":"IGN","data":{"id":"IGN","name":"IGN","solved":false,"penalty":true},"token":"t5"}
+{"type":"groups","id":"group-1","data":{"id":"group-1","name":"participants"},"token":"t6"}
+{"type":"groups","id":"group-2","data":{"id":"group-2","name":"observers"},"token":"t7"}
+{"type":"organizations","id":"org-1","data":{"id":"org-1","name":"测试大学"},"token":"t8"}
+{"type":"teams","id":"01","data":{"id":"01","name":"追光队 Zulu","display_name":"追光队 Zulu","organization_id":"org-1","group_ids":["group-1"]},"token":"t9"}
+{"type":"teams","id":"02","data":{"id":"02","name":"晨星队 Alpha","display_name":"晨星队 Alpha","organization_id":"org-1","group_ids":["group-1"]},"token":"t10"}
+{"type":"teams","id":"S01","data":{"id":"S01","name":"⭐打星队","display_name":"⭐打星队","organization_id":"org-1","group_ids":["group-2"]},"token":"t11"}
+{"type":"teams","id":"03","data":{"id":"03","name":"零提交队","display_name":"零提交队","organization_id":"org-1","group_ids":["group-1"]},"token":"t12"}
+{"type":"problems","id":"1001","data":{"id":"1001","label":"A","name":"求和","ordinal":0},"token":"t13"}
+{"type":"problems","id":"1002","data":{"id":"1002","label":"B","name":"最短路","ordinal":1},"token":"t14"}
+{"type":"submissions","id":"s1","data":{"id":"s1","team_id":"01","problem_id":"1001","contest_time":"00:01:01"},"token":"t15"}
+{"type":"judgements","id":"j-s1","data":{"id":"j-s1","submission_id":"s1","judgement_type_id":"AC","end_contest_time":"00:01:01"},"token":"t16"}
+{"type":"submissions","id":"s2","data":{"id":"s2","team_id":"02","problem_id":"1001","contest_time":"00:01:10"},"token":"t17"}
+{"type":"judgements","id":"j-s2","data":{"id":"j-s2","submission_id":"s2","judgement_type_id":"AC","end_contest_time":"00:01:10"},"token":"t18"}
+{"type":"submissions","id":"s3","data":{"id":"s3","team_id":"S01","problem_id":"1001","contest_time":"00:00:30"},"token":"t19"}
+{"type":"judgements","id":"j-s3","data":{"id":"j-s3","submission_id":"s3","judgement_type_id":"AC","end_contest_time":"00:00:30"},"token":"t20"}
+{"type":"submissions","id":"s4","data":{"id":"s4","team_id":"01","problem_id":"1002","contest_time":"04:02:03"},"token":"t21"}
+{"type":"judgements","id":"j-s4","data":{"id":"j-s4","submission_id":"s4","judgement_type_id":"WA","end_contest_time":"04:02:03"},"token":"t22"}
+{"type":"submissions","id":"s5","data":{"id":"s5","team_id":"01","problem_id":"1002","contest_time":"04:03:04"},"token":"t23"}
+{"type":"judgements","id":"j-s5","data":{"id":"j-s5","submission_id":"s5","judgement_type_id":"CE","end_contest_time":"04:03:04"},"token":"t24"}
+{"type":"submissions","id":"s6","data":{"id":"s6","team_id":"01","problem_id":"1002","contest_time":"04:04:05"},"token":"t25"}
+{"type":"judgements","id":"j-s6","data":{"id":"j-s6","submission_id":"s6","judgement_type_id":"FE","end_contest_time":"04:04:05"},"token":"t26"}
+{"type":"submissions","id":"s7","data":{"id":"s7","team_id":"01","problem_id":"1002","contest_time":"04:05:06"},"token":"t27"}
+{"type":"judgements","id":"j-s7","data":{"id":"j-s7","submission_id":"s7","judgement_type_id":"IGN","end_contest_time":"04:05:06"},"token":"t28"}
+{"type":"submissions","id":"s8","data":{"id":"s8","team_id":"01","problem_id":"1002","contest_time":"04:20:05"},"token":"t29"}
+{"type":"judgements","id":"j-s8","data":{"id":"j-s8","submission_id":"s8","judgement_type_id":"AC","end_contest_time":"04:20:05"},"token":"t30"}
+{"type":"submissions","id":"s9","data":{"id":"s9","team_id":"02","problem_id":"1002","contest_time":"04:30:04"},"token":"t31"}
+{"type":"judgements","id":"j-s9","data":{"id":"j-s9","submission_id":"s9","judgement_type_id":"AC","end_contest_time":"04:30:04"},"token":"t32"}
+{"type":"state","data":{"ended":"2026-10-22T06:00:00+08:00","finalized":"2026-10-22T06:01:00+08:00"},"token":"t33"}
