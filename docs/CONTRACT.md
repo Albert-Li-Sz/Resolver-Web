@@ -18,8 +18,12 @@ field names without telling the Lead.
 - `POST /api/parse` raw `application/x-ndjson` / `text/plain` (38 MB), or the legacy
   JSON `{ text }` body (16 MB), → `{ contest, stats }`. Accepts JSON Lines or an array.
   Invalid JSON messages include a line number but never echo the submitted body.
-- `POST /api/game` `{ contest, options }` → `{ id, game }`. Builds all resolution
+- `POST /api/game` `{ contest, options, publish?: boolean }` → `{ id, game }`. Builds all resolution
   steps and stores the game in memory. The response also includes a random `controlToken`.
+  Only `publish: true` publishes to the fixed audience entrance; preview builds omit it.
+- `GET /view` is the public audience page. Without an ID it follows the current
+  published session; `/view?id=...` pins one game. `GET /api/watch/current` returns
+  `{ id: string|null, name: string|null }`, with no control token or future awards.
 - `GET /api/game/:id` → `{ ...game, playback }`. Requires the `X-Resolver-Control` header.
 - `GET /api/game/:id/playback` → `{ playback }`, with the same control header; the
   presenter polls every two seconds to keep the session active and synchronize other windows.
@@ -85,11 +89,17 @@ type Game = {
   // organization logo. While true the renderer uses the organization logo for
   // every team of that organization (scoreboard rows, award pages, team list);
   // otherwise the feed's team logo wins on the scoreboard.
+  // Missing organization/team logos are resolved against the bundled Hydro
+  // name/alias catalog. Unmatched schools use /assets/img/icpc-logo.png.
+  // logoSource tracks hydro / default / organization / manual / library;
+  // automatic logos are inherited by teams, while imported/custom logos win.
+  // Both configuration DOM images and Canvas presentations fall back to the
+  // local ICPC image when a remote logo fails to load.
   options: {
     rowsPerScreen: number;           // default 12
     speedFactor: number;             // default 1
     rowOffset: number;               // default 0
-    singleStepStartRow: number|null; // zero-based rank row; null = engine default (last bronze row)
+    singleStepStartRow: number|null; // zero-based frozen row; null = lowest active award recipient
     autoplay: boolean;               // default true
     pauseMs: number;                 // default 1100
     showLegend: boolean;             // default false
@@ -102,6 +112,11 @@ type Game = {
     goldCount: number; silverCount: number; bronzeCount: number;
     goldCitation: string; silverCitation: string; bronzeCitation: string;
     medalSameScore: boolean; // cumulative cutoffs, equal solved/time gets the higher tier
+    podiumEnabled: boolean; // defaults false; top three non-observer teams in final order
+    championCitation: string; runnerUpCitation: string; thirdPlaceCitation: string;
+    firstSolveMode: 'imported'|'all'|'selected';
+    firstSolveProblemIds: string[]; // actual problem IDs, not display labels
+    firstSolveIncludeUnrank: boolean; // defaults false; observers can opt into FTS only
   };
   initialState: {
     frozen: boolean;
@@ -149,6 +164,15 @@ type Step =
   | { type: 'message'; text: string };
 ```
 
+Generated podium awards use `podium-champion` (winner), `podium-runner-up` (rank)
+and `podium-third-place` (rank); medal awards remain independent. Generated FTS
+awards use `first-to-solve-<problemId>` and full contest-time milliseconds. Only
+in-contest AC submissions of eligible visible teams count; equal earliest times
+share the award, and earlier/equal pending submissions leave it undecided. Each
+configured category replaces only imported awards of that category. Both final
+award previews and resolution games use `configuredAwards`; spectator snapshots
+continue to withhold future winners until their award presentation is reached.
+
 `delay.ms` is already scaled by `speedFactor`? **No.** Engine emits the base
 milliseconds from the ICPC Resolver (`DELAY_TIMES`), player multiplies by
 `options.speedFactor`. Standard values (ms):
@@ -173,13 +197,19 @@ row**. The engine emits one `scroll` step per rank row while resolving (last
 place upward), plus the two intro scrolls, so the view moves one row at a time
 and never jumps from the bottom of the board to the top.
 
-`singleStepStartRow` is zero-based. `null` means the engine default, mirroring
-`ResolverLogic`: single-stepping starts at the last bronze medal row
-(`AwardUtil.getLastBronze() - 1`, defaulting to the 12th place when there is no
-bronze award). Rows at or above that row use `PauseTiming` — pauses instead of
-delays, exactly like the Resolver — while rows below it use the standard
-`ScoreboardTiming` delays. The manual web player ignores both timings, so this
-option only affects the engine step stream and older automated clients.
+`singleStepStartRow` is a zero-based frozen row. By default the engine finds the
+lowest frozen position among all enabled, non-ignored award recipients. This
+includes podium, first-to-solve, medal and list awards. With no active awards,
+all rows remain manual. A winner displaced downward by another team's resolve
+ends the fast phase early; manual playback never switches back to fast.
+Each fast step has `phase: 'fast', speedMultiplier: 4`; manual steps use
+`phase: 'manual', speedMultiplier: 1`. Original delay steps are retained; the
+presenter schedules them at 4x and publishes every action through normal SSE.
+Rewind, reset, pause and competing presenter updates cancel automatic progress.
+`role: 'setup'` steps are excluded from manual action indices, while the first
+visible bottom scroll has `role: 'intro-bottom', durationMs: 650`.
+The Canvas uses this fixed duration regardless of the number of teams, and
+both presenter and spectator apply the same animation multipliers.
 
 The scoreboard must reproduce `reference/icpctools/Resolver/docs/resolverScreenShot2.png`.
 The renderer owns that.

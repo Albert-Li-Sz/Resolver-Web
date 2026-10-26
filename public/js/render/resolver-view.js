@@ -1,4 +1,5 @@
 import { scoreStandings, formatSeconds } from '../standings.js';
+import { DEFAULT_SCHOOL_LOGO, teamLogoUrl } from '../logos.js';
 /**
  * Canvas renderer for the ICPC Tools Resolver, ported from
  * reference/icpctools/PresContest scoreboard presentations.
@@ -188,6 +189,8 @@ export class ResolverView {
     this._images = new Map();
     this._fontReady = initFonts();
     this._timeMs = 0;
+    this._animationSpeed = 1;
+    this._rowScrollRate = 1;
     this.nowMs = 0;
 
     this._screen = null;
@@ -307,7 +310,7 @@ export class ResolverView {
   // ---------------------------------------------------------------- images
 
   _preloadImages() {
-    const urls = ['/assets/img/id.png', '/assets/img/tools-logo.png', this.contest.logo];
+    const urls = [DEFAULT_SCHOOL_LOGO, '/assets/img/id.png', '/assets/img/tools-logo.png', this.contest.logo];
     for (const org of this.organizations) urls.push(org.logo);
     for (const team of this.teams) {
       urls.push(team.logo, team.photo);
@@ -353,18 +356,14 @@ export class ResolverView {
 
   _teamLogo(team) {
     const org = this.orgsById.get(team?.organizationId);
-    if (team?.logoOverride && team.logo) return this._image(team.logo) || this._image(org?.logo) || null;
-    // An organization logo uploaded in the config center wins over the
-    // imported per-team logos; otherwise keep the feed's team logo first.
-    if (org?.logoOverride && org.logo) {
-      return this._image(org.logo) || this._image(team?.logo) || null;
-    }
-    return this._image(team?.logo) || this._image(org?.logo) || null;
+    return this._image(teamLogoUrl(team, org)) || this._image(org?.logo) ||
+      this._image(team?.logo) || this._image(DEFAULT_SCHOOL_LOGO);
   }
 
   _orgLogo(team) {
     const org = this.orgsById.get(team?.organizationId);
-    return this._image(org?.logo) || this._image(team?.logo) || null;
+    return this._image(org?.logo !== DEFAULT_SCHOOL_LOGO ? org?.logo : null) ||
+      this._image(team?.logo) || this._image(DEFAULT_SCHOOL_LOGO);
   }
 
   _contestLogo() {
@@ -404,6 +403,8 @@ export class ResolverView {
 
   /** Public reset: accepts a full game, or the game initialState. */
   reset(gameState) {
+    this._animationSpeed = 1;
+    this._rowScrollRate = 1;
     const state = gameState?.initialState ?? gameState;
     if (state && state.results && state.order) {
       this._applyInitialStateFrom(state);
@@ -534,6 +535,7 @@ export class ResolverView {
 
   applyStep(step, { instant = false } = {}) {
     if (!step || typeof step !== 'object') return;
+    this._animationSpeed = step.speedMultiplier === 4 ? 4 : 1;
     switch (step.type) {
       case 'presentation':
         if (Array.isArray(step.awards)) this._setAward(step);
@@ -552,7 +554,7 @@ export class ResolverView {
         break;
       case 'scroll':
         this._selectedSubmission = null;
-        this._scrollTo(step.row, instant);
+        this._scrollTo(step.row, instant, step.durationMs);
         break;
       case 'resolve':
         this._selectedSubmission = null;
@@ -571,12 +573,18 @@ export class ResolverView {
     }
   }
 
-  _scrollTo(row, instant = false) {
+  _scrollTo(row, instant = false, durationMs = null) {
     const value = Math.max(0, Number(row) || 0);
     this._scrollRow = value;
     this._focusOnTeamId = null;
+    this._rowScrollRate = 1;
     if (instant) this._rowScroll.reset(value);
-    else this._rowScroll.setTarget(value);
+    else {
+      this._rowScroll.setTarget(value);
+      if (Number.isFinite(durationMs) && durationMs > 0) {
+        this._rowScrollRate = Math.max(1, this._rowScroll.getMoveTime() * 1000 / durationMs);
+      }
+    }
   }
 
   _applyResolve(step, instant) {
@@ -627,7 +635,7 @@ export class ResolverView {
       screen: this._screen, selectedTeamIds: this._selectedTeamIds.slice(), selectType: this._selectType,
       selectedSubmission: this._selectedSubmission && { ...this._selectedSubmission },
       lastAward: this._lastAward, awardTeamId: this._awardTeamId, teamListAward: this._teamListAward,
-      scrollRow: this._scrollRow, message: this._message && { ...this._message } };
+      scrollRow: this._scrollRow, animationSpeed: this._animationSpeed, message: this._message && { ...this._message } };
   }
 
   restoreState(state) {
@@ -642,6 +650,7 @@ export class ResolverView {
     this._setScreen(state.screen, true);
     this._selectedSubmission = state.selectedSubmission && { ...state.selectedSubmission };
     this._message = state.message && { ...state.message };
+    this._animationSpeed = state.animationSpeed || 1;
   }
 
   /** Bounded checkpoints shorten subsequent seeks; replay only scores once. */
@@ -686,12 +695,14 @@ export class ResolverView {
 
   // ------------------------------------------------------------------ time
 
+  get animationSpeed() { return this._animationSpeed; }
+
   update(dtMs) {
     this.finishReplay();
-    const dt = clamp(Number(dtMs) || 0, 0, 1000);
+    const dt = clamp(Number(dtMs) || 0, 0, 1000) * this._animationSpeed;
     this._timeMs += dt;
     for (const anim of this._teamY.values()) anim.incrementTimeMs(dt);
-    this._rowScroll.incrementTimeMs(dt);
+    this._rowScroll.incrementTimeMs(dt * this._rowScrollRate);
     if (this._focusOnTeamId) {
       const index = this._order.indexOf(this._focusOnTeamId);
       if (index >= 0) {

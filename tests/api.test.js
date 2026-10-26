@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import http from 'node:http';
+import { DEFAULT_SCHOOL_LOGO } from '../public/js/logos.js';
 
 const directory = await mkdtemp(path.join(tmpdir(), 'resolver-api-'));
 process.env.RESOLVER_DATA_DIR = directory;
@@ -18,6 +19,33 @@ async function serve(t) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+test('imported school logos reach both presenter and spectator games, with a served ICPC fallback', async (t) => {
+  const base = await serve(t);
+  const events = [
+    { type: 'organization', data: { id: 'nx', name: '南京晓庄学院' } },
+    { type: 'organization', data: { id: 'pku', name: 'Peking University' } },
+    { type: 'organization', data: { id: 'unknown', name: '未知大学' } },
+    ...['nx', 'pku', 'unknown'].map((id) => ({ type: 'team', data: { id, organization_id: id } })),
+    { type: 'problem', data: { id: 'p' } },
+  ];
+  const parsed = await fetch(`${base}/api/parse`, { method: 'POST', headers: { 'Content-Type': 'application/x-ndjson' },
+    body: events.map(JSON.stringify).join('\n') });
+  assert.equal(parsed.status, 200);
+  const { contest } = await parsed.json();
+  assert.match(decodeURIComponent(contest.teams[0].logo), /南京晓庄学院\.webp/);
+  assert.match(decodeURIComponent(contest.teams[1].logo), /北京大学\.webp/);
+  assert.equal(contest.teams[2].logo, DEFAULT_SCHOOL_LOGO);
+  const created = await (await fetch(`${base}/api/game`, json({ contest }))).json();
+  const presenter = await (await fetch(`${base}/api/game/${created.id}`, { headers: { 'X-Resolver-Control': created.controlToken } })).json();
+  const spectator = await (await fetch(`${base}/api/watch/${created.id}`)).json();
+  assert.deepEqual(presenter.contest.teams.map((team) => team.logo), contest.teams.map((team) => team.logo));
+  assert.deepEqual(spectator.game.contest.teams, presenter.contest.teams);
+  const image = await fetch(base + DEFAULT_SCHOOL_LOGO);
+  assert.equal(image.status, 200);
+  assert.match(image.headers.get('content-type'), /image\/png/);
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()).subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+});
 
 test('presenter authorization, persisted progress and live read-only spectator endpoints', async (t) => {
   const server = app.listen(0, '127.0.0.1');
@@ -73,6 +101,35 @@ test('presenter authorization, persisted progress and live read-only spectator e
   assert.equal((await fetch(`${base}/api/watch/nonexistent`)).status, 404);
 });
 
+test('podium and selected-problem awards agree between the preview API, saved options, games and viewer steps', async (t) => {
+  const base = await serve(t);
+  const contest = { name: 'Combined awards', durationMs: 600_000, freezeDurationMs: 300_000,
+    teams: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], problems: [{ id: 'p', label: 'X' }],
+    submissions: [{ teamId: 'a', problemId: 'p', contestTime: 301_000, status: 'solved' }] };
+  const options = { medalMode: 'custom', goldCount: 1, silverCount: 1, bronzeCount: 1, medalSameScore: false,
+    podiumEnabled: true, championCitation: '总冠军', firstSolveMode: 'selected', firstSolveProblemIds: ['p'], showAwards: true };
+  const preview = await (await fetch(`${base}/api/awards`, json({ contest, options }))).json();
+  assert.equal(preview.awards.length, 7);
+  assert.ok(preview.awards.some((award) => award.citation === '总冠军' && award.teamIds[0] === 'a'));
+  assert.ok(preview.awards.some((award) => award.citation === 'X 题最快解题奖' && award.teamIds[0] === 'a'));
+  const created = await (await fetch(`${base}/api/game`, json({ contest, options }))).json();
+  assert.deepEqual(created.game.contest.awards, preview.awards);
+  const saved = await (await fetch(`${base}/api/configs`, json({ name: 'Award options', config: options, contest }))).json();
+  const restored = await (await fetch(`${base}/api/configs/${saved.id}`)).json();
+  assert.deepEqual(restored.config.firstSolveProblemIds, ['p']);
+  assert.equal(restored.config.podiumEnabled, true);
+  const before = await (await fetch(`${base}/api/watch/${created.id}`)).json();
+  assert.deepEqual(before.game.contest.awards, []);
+  assert.ok(!before.game.steps.some((step) => step.type === 'award'));
+  const index = created.game.steps.findIndex((step) => step.type === 'presentation' && step.screen === 'teamAward' &&
+    step.awards.some((award) => award.id === 'first-to-solve-p'));
+  const moved = await fetch(`${base}/api/game/${created.id}/playback`, { method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Resolver-Control': created.controlToken }, body: JSON.stringify({ index, revision: 0 }) });
+  assert.equal(moved.status, 200);
+  const after = await (await fetch(`${base}/api/watch/${created.id}`)).json();
+  assert.ok(after.game.steps.some((step) => step.type === 'presentation' && step.awards?.some((award) => award.citation === 'X 题最快解题奖')));
+});
+
 test('HTTP input validation, raw feed upload, safe errors, cache headers and real 404s', async (t) => {
   const base = await serve(t);
   const reboundStatus = await new Promise((resolve, reject) => {
@@ -126,6 +183,30 @@ test('management authentication covers reads/writes while viewers and presenter 
   assert.equal(cross.status, 403);
   const proxied = await fetch(`${base}/api/awards`, { ...json(createDemo()), headers: { ...headers, Origin: base.replace('http:', 'https:') } });
   assert.equal(proxied.status, 200, 'HTTPS proxy origins retain management writes when Host is preserved');
+});
+
+test('/view is a public stable entrance and rehearsals cannot replace a published contest', async (t) => {
+  const base = await serve(t);
+  const before = await (await fetch(base + '/api/watch/current')).json();
+  const payload = { contest: { name: 'Live entrance', teams: [{ id: 'a' }], problems: [{ id: 'p' }] } };
+  const preview = await (await fetch(base + '/api/game', json(payload))).json();
+  assert.deepEqual(await (await fetch(base + '/api/watch/current')).json(), before);
+  const live = await (await fetch(base + '/api/game', json({ ...payload, publish: true }))).json();
+  assert.equal((await (await fetch(base + '/api/watch/current')).json()).id, live.id);
+  await fetch(base + '/api/game', json(payload));
+  assert.notEqual(live.id, preview.id);
+  process.env.RESOLVER_ADMIN_KEY = 'public-view-test';
+  t.after(() => { delete process.env.RESOLVER_ADMIN_KEY; });
+  for (const route of ['/view', '/view/', `/view?id=${live.id}`, '/watch.html']) {
+    const response = await fetch(base + route);
+    assert.equal(response.status, 200, route);
+    assert.match(await response.text(), /js\/watch\.js/);
+  }
+  const current = await fetch(base + '/api/watch/current');
+  assert.equal(current.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await current.json(), { id: live.id, name: 'Live entrance' });
+  assert.equal((await fetch(base + '/api/configs')).status, 401);
+  assert.equal((await fetch(base + `/api/game/${live.id}`)).status, 403);
 });
 
 test('anonymous local game floods cannot displace a current presenter', async (t) => {

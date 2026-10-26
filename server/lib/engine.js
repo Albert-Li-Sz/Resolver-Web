@@ -2,6 +2,8 @@ import { FREEZE_DEFAULTS, normalizeFreezeOptions, withFreezeOptions } from '../.
 import { MEDAL_DEFAULTS, normalizeMedalOptions, configuredAwards } from '../../public/js/medals.js';
 import { scoreStandings, updateStandings } from '../../public/js/standings.js';
 import { LIMITS, inputError, jsonBytes, validateContestInput } from './limits.js';
+import { DEFAULT_SCHOOL_LOGO } from '../../public/js/logos.js';
+import { applySchoolLogos } from '../../public/js/school-logos.js';
 
 /**
  * ICPC Resolver engine (Node.js port of the relevant parts of ICPC Tools).
@@ -236,6 +238,7 @@ function parseTimestamp(value) {
 function usableAsset(value) {
   if (value == null) return null;
   if (typeof value === 'string') {
+    if (value === DEFAULT_SCHOOL_LOGO) return value;
     return /^(data:|https?:\/\/|\/media\/[a-f0-9]{64}\.(?:png|jpg|webp)$)/i.test(value) ? value : null;
   }
   if (Array.isArray(value)) {
@@ -623,7 +626,7 @@ function normalizeDurationValue(value, fallback) {
 }
 
 function normalizeLogo(value) {
-  return typeof value === 'string' && /^(data:|https?:\/\/|\/media\/[a-f0-9]{64}\.(?:png|jpg|webp)$)/i.test(value) ? value : null;
+  return typeof value === 'string' ? usableAsset(value) : null;
 }
 
 /**
@@ -650,6 +653,7 @@ export function normalizeContest(input) {
     formalName: o.formalName ?? o.formal_name ?? o.name ?? null,
     country: o.country ?? null,
     logo: normalizeLogo(o.logo),
+    logoSource: ['hydro', 'default', 'manual', 'library'].includes(o.logoSource) ? o.logoSource : undefined,
     // Web-uploaded organization logos override the team logos for that org.
     logoOverride: o.logoOverride === true || o.logo_override === true,
   }));
@@ -676,6 +680,7 @@ export function normalizeContest(input) {
       formalName,
       country,
       logo: normalizeLogo(t.logo ?? org?.logo),
+      logoSource: t.logo ? (['hydro', 'default', 'organization', 'manual', 'library'].includes(t.logoSource) ? t.logoSource : undefined) : 'organization',
       photo: normalizeLogo(t.photo),
     };
   });
@@ -765,7 +770,7 @@ export function normalizeContest(input) {
     })
     .filter(Boolean);
 
-  return {
+  return applySchoolLogos({
     contestId: input.contestId == null ? null : String(input.contestId),
     freezeSource: input.freezeSource || (freezeDurationMs > 0 ? 'feed' : 'none'),
     missingSubmissionTimes: Math.max(missingSubmissionTimes, Number(input.missingSubmissionTimes) || 0),
@@ -782,7 +787,7 @@ export function normalizeContest(input) {
     teams,
     awards,
     submissions,
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,6 +1015,7 @@ function publicContest(contest) {
       formalName: o.formalName,
       country: o.country,
       logo: o.logo,
+      logoSource: o.logoSource,
       logoOverride: o.logoOverride === true,
     })),
     teams: contest.teams.map((t) => ({
@@ -1023,6 +1029,7 @@ function publicContest(contest) {
       formalName: t.formalName,
       country: t.country,
       logo: t.logo,
+      logoSource: t.logoSource,
       photo: t.photo,
     })),
     awards: contest.awards.map((a) => ({
@@ -1069,40 +1076,21 @@ function awardSortRank(award) {
   return index < 0 ? AWARD_TYPE_ORDER.length : index;
 }
 
-/**
- * Default `singleStepStartRow`, mirroring the ResolverLogic constructor:
- * single-stepping begins at the lowest medal team, or at
- * `AwardUtil.getLastBronze() - 1` when that is lower. `getLastBronze()`
- * defaults to the 12th place (or the last team) when there is no bronze medal.
- */
-function defaultSingleStepStartRow(contest, finalView) {
-  const order = Array.isArray(finalView?.order) ? finalView.order : [];
-  const indexOf = new Map(order.map((teamId, index) => [teamId, index]));
-  const awards = Array.isArray(contest.awards) ? contest.awards : [];
-  let row = -1;
-
-  for (const award of awards) {
-    if (awardTypeOf(award) !== 'medal') continue;
-    for (const teamId of award.teamIds || []) {
-      const index = indexOf.get(String(teamId));
-      if (index != null) row = Math.max(row, index);
+/** Lowest frozen row among all enabled award recipients; never use final rank as the frozen boundary. */
+export function resolveStartRowFor(contest, options, frozenOrder) {
+  const last = Math.max(0, frozenOrder.length - 1);
+  if (options.singleStepStartRow != null) return Math.min(last, options.singleStepStartRow);
+  if (!options.showAwards) return last;
+  const rows = new Map(frozenOrder.map((id, row) => [id, row]));
+  let start = -1;
+  for (const award of contest.awards || []) {
+    if (award.displayMode === 'ignore') continue;
+    for (const id of award.teamIds || []) {
+      const row = rows.get(String(id));
+      if (row != null) start = Math.max(start, row);
     }
   }
-
-  const unranked = new Set(contest.teams.filter((team) => team.unrank).map((team) => team.id));
-  const rankedOrder = order.filter((id) => !unranked.has(id));
-  let lastBronze = rankedOrder.length ? (indexOf.get(rankedOrder[Math.min(12, rankedOrder.length) - 1]) + 1) : 0;
-  for (const award of awards) {
-    if (awardTypeOf(award) !== 'medal') continue;
-    if (!String(award.id ?? '').toLowerCase().includes('bronze')) continue;
-    lastBronze = 0;
-    for (const teamId of award.teamIds || []) {
-      const index = indexOf.get(String(teamId));
-      if (index != null) lastBronze = Math.max(lastBronze, index + 1);
-    }
-  }
-
-  return Math.max(row, lastBronze - 1);
+  return start < 0 ? last : start;
 }
 
 /**
@@ -1124,6 +1112,13 @@ function scrollTopFor(row, options, teamCount) {
  */
 function buildStepsInternal(contest, options, frozenView, finalView) {
   const steps = [];
+  let phase = 'intro';
+  const push = (...items) => steps.push(...items.map((step) => phase === 'intro' ? step :
+    { ...step, phase, speedMultiplier: phase === 'fast' ? 4 : 1 }));
+  const singleStepStartRow = resolveStartRowFor(contest, options, frozenView.order);
+  const awardRecipients = new Set(options.showAwards ? contest.awards
+    .filter((award) => award.displayMode !== 'ignore').flatMap((award) => award.teamIds) : []);
+  let manualStarted = false;
   const teamById = new Map(contest.teams.map((team) => [team.id, team]));
 
   // Mutable scoreboard state. Starts frozen, then resolves each pending cell.
@@ -1167,31 +1162,31 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
 
   // ---- Intro: splash -> scoreboard -> bottom ------------------------------
   if (options.startScreen === 'scoreboard') {
-    steps.push({ type: 'presentation', screen: 'scoreboard' });
+    push({ type: 'presentation', screen: 'scoreboard' });
   } else {
-    steps.push({ type: 'presentation', screen: 'splash' });
-    steps.push(pause('splash'));
+    push({ type: 'presentation', screen: 'splash' });
+    push(pause('splash'));
   }
 
-  steps.push({ type: 'selectTeam', teamIds: [], selectType: 'NORMAL' });
-  steps.push({ type: 'scroll', row: 0 });
+  push({ type: 'selectTeam', teamIds: [], selectType: 'NORMAL', role: 'setup' });
+  push({ type: 'scroll', row: 0, role: 'setup' });
   if (options.startScreen !== 'scoreboard') {
-    steps.push({ type: 'presentation', screen: 'scoreboard' });
+    push({ type: 'presentation', screen: 'scoreboard' });
   }
-  steps.push(pause('initial scoreboard'));
+  push(pause('initial scoreboard'));
 
   const teamCount = order.length;
   if (teamCount === 0) {
-    steps.push(pause('done'));
-    return { steps, finalOrder: order };
+    push(pause('done'));
+    return { steps, finalOrder: order, resolveStartRow: singleStepStartRow };
   }
 
-  steps.push({ type: 'scroll', row: scrollTopFor(teamCount - 1, options, teamCount) });
-  steps.push(pause('bottom'));
+  push({ type: 'scroll', row: scrollTopFor(teamCount - 1, options, teamCount), role: 'intro-bottom', durationMs: 650 });
+  push(pause('bottom'));
 
   // Select the bottom team before starting (the Resolver pauses here).
-  steps.push({ type: 'selectTeam', teamIds: [order[teamCount - 1]], selectType: 'NORMAL' });
-  steps.push(pause('first team'));
+  push({ type: 'selectTeam', teamIds: [order[teamCount - 1]], selectType: 'NORMAL', role: 'setup' });
+  push(pause('first team'));
 
   // Pending work: frozen 'pending' cells that have a judged final result.
   const pendingByTeam = new Map();
@@ -1234,13 +1229,6 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
   let guard = 0;
   const guardLimit = resolvable * 3 + teamCount * 4 + 100;
 
-  // `null` means "let the engine decide", exactly like the Resolver's
-  // Integer.MIN_VALUE default: start single-stepping at the medal rows.
-  const singleStepStartRow =
-    options.singleStepStartRow != null
-      ? options.singleStepStartRow
-      : defaultSingleStepStartRow(contest, finalView);
-
   // Walk the scoreboard from the last row to the top, exactly like
   // ResolverLogic.resolveEverything(): every row is scrolled to and every team
   // is highlighted, whether or not it currently has a pending submission.
@@ -1251,10 +1239,13 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
   // use `PauseTiming`, which replaces each delay with a pause (and does not
   // add select-problem/deselect delays for teams with nothing to resolve).
   for (let currentRow = teamCount - 1; currentRow >= 0; currentRow--) {
-    const singleStep = currentRow <= singleStepStartRow;
+    const wasFast = phase === 'fast';
+    if (currentRow <= singleStepStartRow || awardRecipients.has(order[currentRow])) manualStarted = true;
+    phase = manualStarted ? 'manual' : 'fast';
 
     // Scroll before each row: the board moves one row at a time.
-    steps.push({ type: 'scroll', row: scrollTopFor(currentRow, options, teamCount) });
+    push({ type: 'scroll', row: scrollTopFor(currentRow, options, teamCount),
+      ...(wasFast && manualStarted ? { role: 'manual-entry' } : {}) });
 
     let doneWithRow = false;
     while (!doneWithRow) {
@@ -1266,19 +1257,25 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
         break;
       }
 
+      // A rank jump can displace an award winner below its original frozen row.
+      // Stop fast forwarding before revealing that winner, even above the configured cutoff.
+      if (awardRecipients.has(teamId)) manualStarted = true;
+      phase = manualStarted ? 'manual' : 'fast';
+      const singleStep = manualStarted;
+
       // Highlight the team at the current row. The original Resolver selects
       // every team while scrolling up, even the ones with nothing to resolve.
-      steps.push({ type: 'selectTeam', teamIds: [teamId], selectType: 'NORMAL' });
-      if (singleStep) steps.push(pause('select team'));
-      else steps.push(stepDelay('selectTeam'));
+      push({ type: 'selectTeam', teamIds: [teamId], selectType: 'NORMAL' });
+      if (singleStep) push(pause('select team'));
+      else push(stepDelay('selectTeam'));
 
       if (!next || next.teamId !== teamId) {
         // Nothing to resolve for this team at this row. In single-step mode
         // PauseTiming ignores the select-problem/deselect timing, so only the
         // team highlight pause remains.
         if (!singleStep) {
-          steps.push(stepDelay('selectProblem'));
-          steps.push(stepDelay('deselect'));
+          push(stepDelay('selectProblem'));
+          push(stepDelay('deselect'));
         }
         doneWithRow = true;
       } else {
@@ -1286,9 +1283,9 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
         while (next && next.teamId === teamId && rowOf(teamId) === currentRow) {
           const problemIndex = next.problemIndex;
 
-          steps.push({ type: 'selectSubmission', teamId, problemIndex });
-          if (singleStep) steps.push(pause('select problem'));
-          else steps.push(stepDelay('selectProblem'));
+          push({ type: 'selectSubmission', teamId, problemIndex });
+          if (singleStep) push(pause('select problem'));
+          else push(stepDelay('selectProblem'));
 
           const oldRow = rowOf(teamId);
           const move = applyResolve(teamId, problemIndex);
@@ -1296,7 +1293,7 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
           const resolved = results[teamId][problemIndex];
           const solved = resolved.status === 'solved';
 
-          steps.push({
+          push({
             type: 'resolve',
             teamId,
             problemIndex,
@@ -1309,10 +1306,10 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
             move,
           });
           const statusKind = solved ? (newRow !== oldRow ? 'solvedMove' : 'solvedStay') : 'failed';
-          if (singleStep) steps.push(pause(solved ? 'solved' : 'failed'));
-          else steps.push(stepDelay(statusKind));
+          if (singleStep) push(pause(solved ? 'solved' : 'failed'));
+          else push(stepDelay(statusKind));
           // PauseTiming ignores DESELECT; ScoreboardTiming waits 250ms.
-          if (!singleStep) steps.push(stepDelay('deselect'));
+          if (!singleStep) push(stepDelay('deselect'));
 
           next = getNextResolve();
         }
@@ -1331,15 +1328,15 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
         const showDetail = teamAwards.some((award) => award.displayMode === 'detail');
         const hasFts = teamAwards.some((award) => award.awardType === 'first-to-solve');
         const selectType = hasFts ? (showDetail ? 'FTS_HIGHLIGHT' : 'FTS') : 'HIGHLIGHT';
-        if (singleStep && steps[steps.length - 1]?.type !== 'pause') steps.push(pause());
-        steps.push({ type: 'selectTeam', teamIds: [teamId], selectType });
-        steps.push(pause('award highlight'));
+        if (singleStep && steps[steps.length - 1]?.type !== 'pause') push(pause());
+        push({ type: 'selectTeam', teamIds: [teamId], selectType });
+        push(pause('award highlight'));
         if (showDetail) {
-          steps.push({ type: 'presentation', screen: 'teamAward', teamId, awards: teamAwards.map(publicAward) });
-          steps.push({ type: 'award', teamId, awards: teamAwards.map(publicAward) });
-          steps.push(pause('award'));
-          steps.push({ type: 'presentation', screen: 'scoreboard' });
-          steps.push(pause('scoreboard'));
+          push({ type: 'presentation', screen: 'teamAward', teamId, awards: teamAwards.map(publicAward) });
+          push({ type: 'award', teamId, awards: teamAwards.map(publicAward) });
+          push(pause('award'));
+          push({ type: 'presentation', screen: 'scoreboard' });
+          push(pause('scoreboard'));
         }
       }
       completedTeams.add(teamId);
@@ -1348,21 +1345,22 @@ function buildStepsInternal(contest, options, frozenView, finalView) {
         const recipients = award.teamIds.filter((id) => teamById.has(id));
         if (!recipients.length || !recipients.every((id) => completedTeams.has(id))) continue;
         listAwards.splice(i, 1);
-        steps.push({ type: 'selectTeam', teamIds: recipients, selectType: 'TEAM_LIST' });
-        steps.push({ type: 'presentation', screen: 'teamList', awards: [publicAward(award)] });
-        steps.push(pause('award list'));
-        steps.push({ type: 'presentation', screen: 'scoreboard' });
-        steps.push(pause('scoreboard'));
+        push({ type: 'selectTeam', teamIds: recipients, selectType: 'TEAM_LIST' });
+        push({ type: 'presentation', screen: 'teamList', awards: [publicAward(award)] });
+        push(pause('award list'));
+        push({ type: 'presentation', screen: 'scoreboard' });
+        push(pause('scoreboard'));
       }
     }
   }
 
+  phase = 'manual';
   // End of resolving: deselect everything.
-  steps.push({ type: 'selectTeam', teamIds: [], selectType: 'NORMAL' });
-  steps.push(pause('done'));
+  push({ type: 'selectTeam', teamIds: [], selectType: 'NORMAL' });
+  push(pause('done'));
 
   if (steps.length > LIMITS.steps) throw inputError('滚榜步骤数量超出上限', 413);
-  return { steps, finalOrder: order };
+  return { steps, finalOrder: order, resolveStartRow: singleStepStartRow };
 }
 
 /**
@@ -1392,7 +1390,7 @@ export function buildGame(contest, options, meta = {}) {
   const c = frozenView.contest;
   c.awards = configuredAwards(c, opts, finalView.standings);
 
-  const { steps } = buildStepsInternal(c, opts, frozenView, finalView);
+  const { steps, resolveStartRow } = buildStepsInternal(c, opts, frozenView, finalView);
 
   const id = meta && typeof meta === 'object' ? meta.id : undefined;
   const game = {
@@ -1407,6 +1405,7 @@ export function buildGame(contest, options, meta = {}) {
     },
     steps,
     meta: {
+      resolveStartRow, fastForwardSpeed: 4, introScrollMs: 650,
       pendingCount: frozenView.pendingCount,
       totalSubmissions: frozenView.totalSubmissions,
       stepCount: steps.length,

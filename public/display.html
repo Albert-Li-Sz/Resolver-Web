@@ -88,7 +88,7 @@
             <span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-sliders"></use></svg></span>
             <div class="card-head-text">
               <h2 id="displayCardTitle">画面参数</h2>
-              <p>滚榜节奏由操作者手动控制。</p>
+              <p>开场快速到底；奖项区之前以 4 倍速掠过，到达获奖队伍后手动推进。</p>
             </div>
             <button type="button" class="link-btn" id="resetOptionsBtn" title="恢复默认参数">
               <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
@@ -183,7 +183,32 @@
               <label class="switch-row" for="medalSameScore"><span class="switch-text"><span>同题数、同罚时获得相同奖项</span><small>按累计名额划线；并列跨线时获得较高奖项，可能增加获奖人数。关闭后严格按榜单顺序分配。</small></span><span class="switch"><input type="checkbox" id="medalSameScore"><span class="switch-track" aria-hidden="true"></span></span></label>
               <p class="field-hint">打星队伍不占奖项名额；名额设为 0 可关闭该等级。自定义奖牌会替换导入的金银铜奖牌，其他奖项保留。</p>
             </fieldset>
-            <div class="panel-actions"><button id="previewAwardsBtn" class="btn btn-secondary" type="button">预览获奖名单</button></div>
+          </div>
+
+          <div class="setting-group" id="podiumSettings">
+            <div class="group-title">冠军、亚军与季军</div>
+            <label class="switch-row" for="podiumEnabled"><span class="switch-text"><span>自动生成冠亚季军</span><small>按最终榜单顺序，各取一支正式队伍；打星队伍不占名额，可与金银铜同时颁发。</small></span><span class="switch"><input type="checkbox" id="podiumEnabled"><span class="switch-track" aria-hidden="true"></span></span></label>
+            <fieldset id="podiumFields" class="medal-fields" disabled>
+              <legend class="visually-hidden">冠亚季军名称</legend>
+              <div class="field-grid medal-grid">
+                <div class="field"><label class="field-label" for="championCitation">冠军名称</label><input id="championCitation" class="input" maxlength="80" value="冠军"></div>
+                <div class="field"><label class="field-label" for="runnerUpCitation">亚军名称</label><input id="runnerUpCitation" class="input" maxlength="80" value="亚军"></div>
+                <div class="field"><label class="field-label" for="thirdPlaceCitation">季军名称</label><input id="thirdPlaceCitation" class="input" maxlength="80" value="季军"></div>
+              </div>
+              <p class="field-hint">正式队伍不足三支时，按实际数量颁发。生成的冠亚季军替换事件流中同类奖项，其他奖项保留。</p>
+            </fieldset>
+          </div>
+
+          <div class="setting-group" id="firstSolveSettings">
+            <div class="group-title">各题最快解题奖</div>
+            <div class="field"><label class="field-label" for="firstSolveMode">最快解题奖范围</label><select id="firstSolveMode" class="input select"><option value="imported">沿用事件流中的最快解题奖</option><option value="all">为全部题目生成</option><option value="selected">为指定题目生成</option></select></div>
+            <fieldset id="firstSolveFields" class="medal-fields" disabled>
+              <legend class="visually-hidden">最快解题奖设置</legend>
+              <div id="firstSolveProblemPicker" hidden><p class="field-label" id="firstSolveProblemLabel">选择题目（可多选）</p><div id="firstSolveProblemList" class="problem-choices" role="group" aria-labelledby="firstSolveProblemLabel"></div></div>
+              <label class="switch-row" for="firstSolveIncludeUnrank"><span class="switch-text"><span>包含打星队伍</span><small>开启后，打星队伍也可获得最快解题奖；冠亚季军和金银铜名额仍只计算正式队伍。</small></span><span class="switch"><input type="checkbox" id="firstSolveIncludeUnrank"><span class="switch-track" aria-hidden="true"></span></span></label>
+              <p class="field-hint">按该题最早通过（AC）的比赛时间计算，时间完全相同则共同获奖。未有人通过，或有更早、同一时间的提交尚未判定时，暂不颁发该题奖项。生成结果替换导入的最快解题奖。</p>
+            </fieldset>
+            <div class="panel-actions"><button id="previewAwardsBtn" class="btn btn-secondary" type="button">预览全部获奖名单</button></div>
             <div id="awardPreview" class="award-preview" role="status" aria-live="polite" hidden></div>
           </div>
 

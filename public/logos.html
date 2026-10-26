@@ -107,14 +107,14 @@
             <span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-image"></use></svg></span>
             <div class="card-head-text">
               <h2 id="logosCardTitle">Logo 管理</h2>
-              <p>为组织上传或替换队徽，上传后立即写入当前赛事并同步到预览与滚榜。</p>
+              <p>导入时按学校中英文名称自动匹配 Hydro 校徽；未匹配或图片加载失败时使用 ICPC 官方 Logo。</p>
             </div>
             <span class="badge badge-muted" id="logoSummary">—</span>
           </div>
           <div class="logo-manager">
             <div class="logo-manager-copy">
               <strong>为组织替换或上传 Logo</strong>
-              <p class="field-hint" id="logoManagerHint">载入赛事后，可为每个组织上传 Logo；上传后该组织的所有队伍统一使用。</p>
+              <p class="field-hint" id="logoManagerHint">载入赛事后自动匹配学校 Logo，也可为组织上传图片进行替换。</p>
             </div>
             <button type="button" class="btn btn-secondary" id="manageLogosBtn">
               <svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg>
@@ -145,7 +145,7 @@
       <div class="modal-head">
         <div>
           <h2 id="logoDialogTitle">组织 Logo</h2>
-          <p class="modal-desc">为组织上传 Logo。上传后会立即用于预览和滚榜；同一组织的队伍共用该 Logo，移除后回退到队伍自己的 Logo。</p>
+          <p class="modal-desc">学校 Logo 已自动匹配；未匹配时使用 ICPC 官方 Logo。上传图片可替换组织 Logo，移除后恢复导入或自动匹配的 Logo。</p>
         </div>
         <button type="button" class="icon-btn" data-close-dialog="logoDialog" title="关闭" aria-label="关闭对话框">
           <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>

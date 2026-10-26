@@ -129,6 +129,7 @@ app.post('/api/game', async (req, res, next) => {
     const game = await engineJob('game', contest, options || {});
     if (!game || !Array.isArray(game.steps)) return fail(res, 500, '滚榜步骤生成失败');
     const entry = sessions.create(game);
+    if (req.body.publish === true) sessions.publish(entry);
     res.setHeader('Cache-Control', 'no-store');
     ok(res, { id: entry.id, game: entry.game, controlToken: entry.controlToken });
   } catch (err) {
@@ -166,6 +167,11 @@ app.put('/api/game/:id/playback', (req, res) => {
   if (!entry) return;
   const result = sessions.move(entry, req.body?.index, req.body?.revision);
   res.status(result.status || 200).json(result);
+});
+
+app.get('/api/watch/current', (req, res) => {
+  const entry = sessions.current();
+  ok(res, { id: entry?.id || null, name: entry?.game.contest.name || null });
 });
 
 app.get('/api/watch/:id', (req, res) => {
@@ -224,6 +230,12 @@ app.delete('/api/configs/:id', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// The fixed audience entrance is public; only explicitly started games are published.
+app.get(['/view', '/view/'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(ROOT, 'public', 'watch.html'));
 });
 
 // Static app.

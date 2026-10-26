@@ -1,4 +1,5 @@
-import { actionIndicesFor, startIndexFor } from './playback-model.js';
+import { actionIndicesFor, startIndexFor, nextAutomaticAction } from './playback-model.js';
+import { AutomaticAdvance } from './automatic-advance.js';
 import { ResolverView } from './render/resolver-view.js';
 import { readJSONResponse } from './http.js';
 
@@ -41,6 +42,7 @@ const btnPrev = document.getElementById('btn-prev');
 const btnRestart = document.getElementById('btn-restart');
 const btnHelp = document.getElementById('btn-help');
 const btnFull = document.getElementById('btn-full');
+const btnFast = document.getElementById('btn-fast');
 
 let game = null;
 let view = null;
@@ -60,8 +62,14 @@ const FS_HOT_ZONE_PX = 150; // distance from the bottom edge that reveals the ba
 const FS_HIDE_DELAY_MS = 450;
 
 const teamById = new Map();
+const fastForward = new AutomaticAdvance({
+  next: () => game ? nextAutomaticAction(game, actionIndices, actionPos) : null,
+  advance: (target) => moveTo(target, { automatic: true }),
+  changed: () => { if (game) updateHud(); },
+});
 
 function showError(message) {
+  fastForward.stop();
   ended = true;
   clearTimeout(pollTimer);
   loadingEl.hidden = true;
@@ -121,7 +129,13 @@ function updateHud() {
   progressBar.style.width = `${total ? Math.min(100, (Math.max(0, current) / total) * 100) : 0}%`;
   hudStepCount.textContent = `${Math.max(0, current)} / ${total}`;
   hudStep.textContent = mode === 'end' ? '滚榜结束（可回看）' : formatStep(lastAppliedStep);
-  if (hudSpeed) hudSpeed.textContent = transitioning ? '同步中…' : '主持端';
+  const canFastForward = Boolean(nextAutomaticAction(game, actionIndices, actionPos));
+  if (hudSpeed) hudSpeed.textContent = fastForward.active ? '4 倍速快进' : transitioning ? '同步中…' :
+    canFastForward ? '快进已暂停' : '手动主持';
+  if (btnFast) {
+    btnFast.hidden = !canFastForward;
+    btnFast.textContent = fastForward.active ? '暂停 4 倍速' : '继续 4 倍速';
+  }
   btnPrev.disabled = transitioning || actionPos <= 0;
   btnNext.disabled = transitioning || actionPos >= total - 1;
   btnRestart.disabled = transitioning;
@@ -166,12 +180,13 @@ function goToStart() {
   return moveTo(startTarget(), { instant: true });
 }
 
-async function moveTo(targetIndex, { instant = false } = {}) {
-  if (!game || ended || transitioning || !actionIndices.includes(targetIndex)) return;
+async function moveTo(targetIndex, { instant = false, automatic = false } = {}) {
+  if (instant) fastForward.stop();
+  if (!game || ended || transitioning || !actionIndices.includes(targetIndex)) return false;
   if (isPreview) {
     if (instant) rebuildTo(targetIndex);
     else applyActionAt(actionIndices.indexOf(targetIndex));
-    return;
+    return true;
   }
   transitioning = true;
   const delta = actionIndices.indexOf(targetIndex) - actionPos;
@@ -192,6 +207,7 @@ async function moveTo(targetIndex, { instant = false } = {}) {
     if (response.status === 409) {
       revision = data.playback.revision;
       rebuildTo(data.playback.index);
+      if (automatic) return false;
       if (!instant && delta === 1) targetIndex = actionIndices[Math.min(actionIndices.length - 1, actionPos + 1)];
       else if (instant && delta === -1) targetIndex = actionIndices[Math.max(0, actionPos - 1)];
       if (attempt === 2) toast('主持进度更新频繁，已同步，请再次操作');
@@ -201,7 +217,7 @@ async function moveTo(targetIndex, { instant = false } = {}) {
     revision = data.playback.revision;
     if (instant || actionIndices.indexOf(targetIndex) !== actionPos + 1) rebuildTo(targetIndex);
     else applyActionAt(actionIndices.indexOf(targetIndex));
-      break;
+      return true;
     }
   } catch (err) {
     toast(`${err.name === 'TimeoutError' ? '连接超时' : err.message}，请重试`);
@@ -222,6 +238,7 @@ async function syncPlayback() {
       if ([403, 404].includes(response.status)) { showError('主持会话已结束或控制权限失效，请返回配置中心重新开始'); return; }
       const data = await readJSONResponse(response);
       if (!transitioning && revision === before && data.playback.revision > revision) {
+        fastForward.stop();
         revision = data.playback.revision;
         rebuildTo(data.playback.index);
       }
@@ -240,17 +257,21 @@ function applyActionAt(pos) {
   updateHud();
 }
 
-function goNext() {
+async function goNext() {
   if (!game) return;
+  fastForward.stop();
   if (actionPos + 1 >= actionIndices.length) {
     mode = 'end';
     updateHud();
     return;
   }
-  return moveTo(actionIndices[actionPos + 1]);
+  const moved = await moveTo(actionIndices[actionPos + 1]);
+  if (moved && !isPreview) fastForward.start();
+  return moved;
 }
 
 function goPrevious() {
+  fastForward.stop();
   if (!game || actionPos <= 0) return;
   return moveTo(actionIndices[actionPos - 1], { instant: true });
 }
@@ -437,10 +458,12 @@ btnNext?.addEventListener('click', goNext);
 btnHelp?.addEventListener('click', () => toggleHelp());
 document.getElementById('help-close')?.addEventListener('click', () => toggleHelp(false));
 btnFull?.addEventListener('click', toggleFullscreen);
+btnFast?.addEventListener('click', () => fastForward.active ? fastForward.stop() : fastForward.start());
 
 const shareEl = document.getElementById('share');
 const shareUrl = document.getElementById('share-url');
-const viewerUrl = new URL(`/watch.html?id=${encodeURIComponent(gameId || '')}`, location.origin).href;
+const viewerUrl = new URL('/view', location.origin).href;
+document.getElementById('session-viewer').href = new URL(`/view?id=${encodeURIComponent(gameId || '')}`, location.origin).href;
 shareUrl.value = viewerUrl;
 document.getElementById('open-viewer').href = viewerUrl;
 document.getElementById('share-hint').textContent = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
@@ -474,7 +497,7 @@ stageEl?.addEventListener('pointerdown', (event) => {
   if (event.pointerType === 'mouse') goPrevious();
   else goNext();
 });
-window.addEventListener('pagehide', () => clearTimeout(pollTimer));
+window.addEventListener('pagehide', () => { fastForward.stop(); clearTimeout(pollTimer); });
 window.addEventListener('pageshow', (event) => { if (event.persisted && game && !ended) syncPlayback(); });
 stageEl?.addEventListener('contextmenu', (event) => {
   event.preventDefault();
@@ -520,6 +543,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (isTypingTarget(event.target)) return;
   if (key === 'Escape') {
+    if (fastForward.active) { fastForward.stop(); toast('4 倍速快进已暂停'); return; }
     if (!helpEl.hidden) {
       toggleHelp(false);
       return;

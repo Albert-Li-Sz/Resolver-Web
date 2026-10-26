@@ -322,12 +322,12 @@ test('parseEventFeed parses JSON Lines, plural/singular types, updates and delet
   assert.ok(!contest.teams.some((team) => team.id === 't5'));
   assert.equal(contest.teams.find((team) => team.id === 't2').displayName, 'Alpha Blue');
 
-  // Organization cross-reference + relative logo dropped (not browser-loadable).
+  // Relative logos cannot be loaded; unknown schools use the bundled ICPC logo.
   const t1 = contest.teams.find((team) => team.id === 't1');
   assert.equal(t1.organizationName, 'Alpha University');
   assert.equal(t1.formalName, 'Alpha University');
   assert.equal(t1.country, 'AAA');
-  assert.equal(t1.logo, null);
+  assert.equal(t1.logo, '/assets/img/icpc-logo.png');
 
   // Problems sorted by ordinal, not feed order.
   assert.deepEqual(
@@ -547,8 +547,8 @@ test('buildGame emits a valid step sequence and resolve steps update order', () 
   // Intro sequence required by the contract.
   assert.deepEqual(game.steps[0], { type: 'presentation', screen: 'splash' });
   assert.equal(game.steps[1].type, 'pause');
-  assert.deepEqual(game.steps[2], { type: 'selectTeam', teamIds: [], selectType: 'NORMAL' });
-  assert.deepEqual(game.steps[3], { type: 'scroll', row: 0 });
+  assert.deepEqual(game.steps[2], { type: 'selectTeam', teamIds: [], selectType: 'NORMAL', role: 'setup' });
+  assert.deepEqual(game.steps[3], { type: 'scroll', row: 0, role: 'setup' });
   assert.deepEqual(game.steps[4], { type: 'presentation', screen: 'scoreboard' });
   assert.equal(game.steps[5].type, 'pause');
 

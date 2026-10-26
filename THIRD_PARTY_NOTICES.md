@@ -13,6 +13,13 @@ The bundled `public/assets/font/Helvetica-Plain.ttf` is byte-identical to
 `reference/icpctools/PresContest/src/font/Helvetica-Plain.ttf` in this checkout.
 ICPC logos and names remain the property of their respective owners.
 
+`public/assets/img/icpc-logo.png` is copied unchanged from ICPC Tools
+`ContestUtil/src/images/icpc-logo.png` and is the default school logo.
+The school names, aliases and logo paths in `public/js/school-logo-catalog.js`
+come from the Hydro Contest Team School Logo Registry at
+https://avatar.hydrooj.com/. School logos are loaded from that service and remain
+the property of their respective institutions; they are not bundled here.
+
 DM Sans, used by the configuration interface, is Copyright 2014 The DM Sans
 Project Authors. Its SIL Open Font License 1.1 is included in
 `public/assets/font/DM-Sans-OFL.txt`. Upstream:

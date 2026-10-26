@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { parseEventFeed, computeCells, buildGame } from '../server/lib/engine.js';
+import { DEFAULT_SCHOOL_LOGO, logoSource } from '../public/js/logos.js';
 
 const directory = new URL('../examples/', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest.json', directory), 'utf8'));
@@ -18,7 +19,8 @@ for (const entry of manifest) {
     assert.equal(game.steps.filter((step) => step.type === 'resolve').length, entry.reveals);
     assert.ok(entry.reveals > 0);
     assert.ok(contest.submissions.every((s) => Number.isFinite(s.contestTime)));
-    assert.ok(contest.teams.every((team) => !team.logo || team.logo.startsWith('data:')));
+    assert.ok(contest.teams.every((team) => team.logo === DEFAULT_SCHOOL_LOGO ||
+      team.logo.startsWith('data:') || logoSource(team.logo) === 'hydro'));
     assert.equal(computeCells(contest, { frozen: false }).standings.length, entry.teams);
   });
 }

@@ -2,7 +2,7 @@
 
 在浏览器中配置和主持 ICPC / XCPC 滚榜。支持 CCS Contest API 事件流、Hydro CDP 导出、素材管理、封榜还原、自定义奖项，以及跟随主持端的只读观众页面。
 
-本项目为非官方 Web 实现，基于 [ICPC Tools Resolver](https://github.com/icpctools/icpctools)。配置中心参考 [Hydro Docs](https://docs.hydro.ac/zh)、[Pintia UEP](https://uep.pintia.cn/dashboard) 和 [NXOPA-RegSYS](https://github.com/Albert-Li-Sz/NXOPA-RegSYS) 的简洁布局、蓝白配色与表单风格。滚榜 Canvas、排名规则、动画、播放控制与观众画面保持原实现。
+本项目为非官方 Web 实现，基于 [ICPC Tools Resolver](https://github.com/icpctools/icpctools)。配置中心参考 [Hydro Docs](https://docs.hydro.ac/zh)、[Pintia UEP](https://uep.pintia.cn/dashboard) 和 [NXOPA-RegSYS](https://github.com/Albert-Li-Sz/NXOPA-RegSYS) 的简洁布局、蓝白配色与表单风格。采用原版排名规则和 Canvas 展示，并支持奖项区之前的 4 倍速快进与固定观众入口。节奏设计及参考资料见 [播放说明](docs/PLAYBACK.md)。
 
 ![数据源与上传入口](doc/images/01-data-empty.jpg)
 
@@ -11,11 +11,11 @@
 ## 功能与操作流程
 
 1. **数据源**：上传 `.ndjson` / `.jsonl` / `.json` 事件流，或从远程地址读取。首次打开为空白赛事，不会自动载入演示。示例统一在 GitHub 下载，再通过相同的上传入口使用。
-2. **Logo 与照片**：赛前按 ID 或名称准备组织 Logo、队伍 Logo、队伍照片；导入时精确匹配，支持逐组织或逐队替换。
-3. **显示与节奏**：设置每屏行数、行偏移、开场屏、奖项与图例；从完整赛后事件流还原封榜，设置金银铜名额、名称和并列同奖规则。
+2. **Logo 与照片**：导入时按学校中英文名称及别名自动匹配 [Hydro 学校 Logo 库](https://avatar.hydrooj.com/)，未匹配或图片加载失败时使用内置 ICPC 官方 Logo。保留赛事自带及手工上传的图片，支持逐组织或逐队替换，也可赛前按 ID 或名称准备素材。
+3. **显示与节奏**：设置每屏行数、行偏移、开场屏、奖项与图例；从完整赛后事件流还原封榜。可同时配置金银铜、冠军/亚军/季军，以及指定题目或全部题目的最快解题奖，预览完整获奖名单。
 4. **实时预览**：在独立的 16:9 预览中前进、后退和重置，检查数据与颁奖画面。
 5. **配置预设**：将参数连同赛事保存到服务端，之后载入复用。
-6. **开始滚榜**：打开主持页面手动推进；分享「观众链接」，其他电脑只读观看并同步进度。
+6. **开始滚榜**：开场点击后约 650 毫秒滑到底部；已启用奖项的获奖队伍封榜位置之前自动 4 倍速掠过，进入奖项区后恢复手动推进。分享固定 `/view` 入口，其他电脑只读观看并同步进度。
 
 ### 示例下载
 
@@ -42,6 +42,8 @@ npm start
 
 打开 `http://127.0.0.1:4173/`，从 GitHub 下载示例或使用真实赛事事件流，点击「上传文件」。本机默认无需密码。改变端口：`PORT=8080 npm start`。
 
+学校名称索引随项目附带，导入无需在线查询；匹配到的校徽从 Hydro 加载，无法加载时自动使用本地 ICPC Logo。通过 `npm run logos:sync` 更新学校索引。匹配忽略大小写、空格和常用标点，支持中英文双语名称；存在歧义时使用默认 Logo，避免串校。
+
 ### 局域网主持与观众
 
 ```bash
@@ -51,7 +53,7 @@ printf '本次管理员密码：%s\n' "$RESOLVER_ADMIN_KEY"
 npm start
 ```
 
-主持人使用 `http://服务器局域网IP:4173/`，浏览器登录用户名为 `admin`，密码为上面生成的值。开始滚榜后，从主持页复制 `/watch.html?id=...` 观众链接。请让所有设备使用同一服务器地址；`localhost` 和 `127.0.0.1` 指向观看者自己的电脑。
+主持人使用 `http://服务器局域网IP:4173/`，浏览器登录用户名为 `admin`，密码为上面生成的值。观众打开固定 `http://服务器局域网IP:4173/view`，会自动等待并接入当前正式滚榜；预览不会替换直播。主持页也可复制固定入口，或使用 `/view?id=...` 只观看指定场次。请让所有设备使用同一服务器地址；`localhost` 和 `127.0.0.1` 指向观看者自己的电脑。
 
 本机配置中心默认仅接受回环地址。域名、局域网及反向代理部署均须设置 `RESOLVER_ADMIN_KEY`。观众页面无需管理员密码，主持控制由独立会话令牌保护。
 

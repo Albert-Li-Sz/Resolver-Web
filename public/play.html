@@ -65,6 +65,7 @@
         <span class="divider" aria-hidden="true"></span>
 
         <button id="btn-share" class="pill-btn" type="button" title="分享只读观众链接">观众链接</button>
+        <button id="btn-fast" class="pill-btn" type="button" hidden>暂停 4 倍速</button>
         <button id="btn-help" class="icon-btn" type="button" title="快捷键帮助 (?)" aria-label="快捷键帮助">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.4M12 17h.01" /></svg>
         </button>
@@ -81,9 +82,10 @@
       <div class="help-card">
         <div class="help-head"><h2 id="share-title">邀请观众看滚榜</h2><button id="share-close" class="icon-btn" type="button" aria-label="关闭分享">×</button></div>
         <p class="share-description">观众自动跟随主持端，同步揭晓、回退和奖项展示。</p>
-        <label for="share-url">只读观众链接</label>
+        <label for="share-url">固定观众入口（自动接入当前滚榜）</label>
         <input id="share-url" class="share-url" type="url" readonly />
         <div class="share-actions"><button id="copy-viewer" class="pill-btn" type="button">复制链接</button><a id="open-viewer" class="pill-btn" target="_blank" rel="noopener">打开观众视图 ↗</a></div>
+        <p class="help-note"><a id="session-viewer" target="_blank" rel="noopener">仅观看本场滚榜 ↗</a></p>
         <p id="share-hint" class="help-note"></p>
       </div>
     </div>
@@ -106,7 +108,7 @@
           <div><dt>Esc</dt><dd>退出全屏 / 关闭帮助</dd></div>
         </dl>
         <p class="help-note">
-          滚榜全程手动推进：鼠标右键下一步、左键上一步；PPT 翻页器通常发送
+          开场点击后快速滑到底部，奖项区之前自动以 4 倍速掠过；到达获奖队伍的封榜位置后恢复手动推进。快进可暂停。鼠标右键下一步、左键上一步；PPT 翻页器通常发送
           PageDown / PageUp（部分遥控器发送 → / ← 或空格）。画面基于 ICPC Tools Resolver 的绘制逻辑复刻。
         </p>
       </div>

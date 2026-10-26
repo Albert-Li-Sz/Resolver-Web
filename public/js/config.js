@@ -3,6 +3,8 @@ import { applyMediaLibrary, preserveContestMedia } from './media-library.js';
 import { MediaLibraryUI } from './media-library-ui.js';
 import { MEDAL_DEFAULTS, normalizeMedalOptions } from './medals.js';
 import { readJSONResponse } from './http.js';
+import { DEFAULT_SCHOOL_LOGO, logoSource, setLogoImage, teamLogoUrl } from './logos.js';
+import { applySchoolLogos } from './school-logos.js';
 /* ==========================================================================
    ICPC Resolver — 滚榜配置中心
    Vanilla ES module. No frameworks, no build step.
@@ -359,8 +361,35 @@ function syncOptionControls() {
   for (const id of ['medalMode', 'goldCount', 'silverCount', 'bronzeCount', 'goldCitation', 'silverCitation', 'bronzeCitation']) setValue(id, o[id]);
   setChecked('medalSameScore', o.medalSameScore);
   if ($('medalFields')) $('medalFields').disabled = o.medalMode !== 'custom';
+  setChecked('podiumEnabled', o.podiumEnabled);
+  for (const id of ['championCitation', 'runnerUpCitation', 'thirdPlaceCitation', 'firstSolveMode']) setValue(id, o[id]);
+  if ($('podiumFields')) $('podiumFields').disabled = !o.podiumEnabled;
+  setChecked('firstSolveIncludeUnrank', o.firstSolveIncludeUnrank);
+  if ($('firstSolveFields')) $('firstSolveFields').disabled = o.firstSolveMode === 'imported';
+  if ($('firstSolveProblemPicker')) $('firstSolveProblemPicker').hidden = o.firstSolveMode !== 'selected';
+  renderFirstSolveProblems();
   setValue('title', o.title || '');
   updateOptionOutputs();
+}
+
+function renderFirstSolveProblems() {
+  const list = $('firstSolveProblemList');
+  if (!list) return;
+  list.textContent = '';
+  const problems = state.contest?.problems || [];
+  if (!problems.length) {
+    const hint = document.createElement('p'); hint.className = 'field-hint'; hint.textContent = '载入赛事后可选择题目。';
+    list.append(hint); return;
+  }
+  const selected = new Set(state.options.firstSolveProblemIds);
+  for (const problem of problems) {
+    const label = document.createElement('label'); label.className = 'problem-choice';
+    const input = document.createElement('input'); input.type = 'checkbox'; input.value = problem.id;
+    input.dataset.problemId = problem.id; input.checked = selected.has(problem.id);
+    const text = document.createElement('span');
+    text.textContent = `${problem.label || problem.id} 题${problem.name ? ` · ${problem.name}` : ''}`;
+    label.append(input, text); list.append(label);
+  }
 }
 
 function updateOptionOutputs() {
@@ -482,16 +511,25 @@ function bindEvents() {
     syncOptionControls(); commitOptions();
   });
 
-  for (const id of ['medalMode', 'goldCount', 'silverCount', 'bronzeCount', 'goldCitation', 'silverCitation', 'bronzeCitation', 'medalSameScore']) {
+  const awardSwitches = new Set(['medalSameScore', 'podiumEnabled', 'firstSolveIncludeUnrank']);
+  for (const id of ['medalMode', 'goldCount', 'silverCount', 'bronzeCount', 'goldCitation', 'silverCitation', 'bronzeCitation',
+    'medalSameScore', 'podiumEnabled', 'championCitation', 'runnerUpCitation', 'thirdPlaceCitation', 'firstSolveMode', 'firstSolveIncludeUnrank']) {
     on(id, 'change', (event) => {
-      state.options[id] = id === 'medalSameScore' ? event.target.checked : event.target.value;
+      state.options[id] = awardSwitches.has(id) ? event.target.checked : event.target.value;
       Object.assign(state.options, normalizeMedalOptions(state.options));
-      if (id === 'medalMode' && state.options.medalMode === 'custom') state.options.showAwards = true;
+      if ((id === 'medalMode' && state.options.medalMode === 'custom') ||
+          (id === 'podiumEnabled' && state.options.podiumEnabled) ||
+          (id === 'firstSolveMode' && state.options.firstSolveMode !== 'imported')) state.options.showAwards = true;
       syncOptionControls();
       if ($('awardPreview')) $('awardPreview').hidden = true;
       commitOptions();
     });
   }
+  on('firstSolveProblemList', 'change', () => {
+    state.options.firstSolveProblemIds = [...$('firstSolveProblemList').querySelectorAll('input[data-problem-id]:checked')].map((input) => input.value);
+    if ($('awardPreview')) $('awardPreview').hidden = true;
+    commitOptions();
+  });
   on('previewAwardsBtn', 'click', previewAwards);
 
   // Options ---------------------------------------------------------------
@@ -864,6 +902,7 @@ function showInlineNote(message, type) {
 
 function applyContest(contest, { stats = null, source = 'upload', sourceName = '', options = null, mediaMatchReport = null } = {}) {
   if (!isContestLike(contest)) return;
+  contest = applySchoolLogos(contest);
   state.mediaMatchReport = mediaMatchReport;
   libraryUI.clearReport();
   state.unpersistableContest = null;
@@ -930,6 +969,7 @@ function renderSummary() {
   const contest = state.contest;
   renderPageContest();
   renderPhotoList();
+  renderFirstSolveProblems();
   if (state.mediaMatchReport) libraryUI.showReport(state.mediaMatchReport);
   const body = $('summaryBody');
   if (!contest) {
@@ -1026,10 +1066,7 @@ function renderSummary() {
     const team = teams[index] || {};
     const label = team.displayName || team.name || '队伍';
     const organization = organizations.get(team.organizationId);
-    const logo = team.logoOverride && team.logo ? team.logo :
-      organization && organization.logoOverride && organization.logo
-        ? organization.logo
-        : team.logo || (organization && organization.logo);
+    const logo = teamLogoUrl(team, organization);
 
     const item = document.createElement('div');
     item.className = 'team-logo';
@@ -1037,21 +1074,12 @@ function renderSummary() {
     item.title = label;
     item.setAttribute('aria-label', label);
 
-    if (isSafeLogo(logo)) {
-      const img = document.createElement('img');
-      img.alt = '';
-      img.src = logo;
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.addEventListener('error', () => {
-        item.textContent = shortLabel(label);
-        item.classList.add('is-fallback');
-      });
-      item.appendChild(img);
-    } else {
-      item.textContent = shortLabel(label);
-      item.classList.add('is-fallback');
-    }
+    const img = document.createElement('img');
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    setLogoImage(img, isSafeLogo(logo) ? logo : DEFAULT_SCHOOL_LOGO);
+    item.appendChild(img);
 
     strip.appendChild(item);
   }
@@ -1130,7 +1158,7 @@ function getOrganizationRows() {
 }
 
 function orgPreviewLogo(row) {
-  return row.logo || row.teamLogo || null;
+  return (row.logo !== DEFAULT_SCHOOL_LOGO && row.logo) || row.teamLogo || DEFAULT_SCHOOL_LOGO;
 }
 
 function renderLogoSummary() {
@@ -1162,15 +1190,15 @@ function renderLogoSummary() {
     (sum, row) => sum + (row.logoOverride ? row.teamCount : 0),
     0,
   );
-  const withLogo = rows.filter((row) => row.logo || row.teamLogo).length;
+  const automatic = rows.filter((row) => !row.logoOverride && logoSource(orgPreviewLogo(row)) === 'hydro').length;
+  const defaults = rows.filter((row) => orgPreviewLogo(row) === DEFAULT_SCHOOL_LOGO).length;
 
-  badge.textContent = `${overridden} / ${rows.length}`;
-  badge.title = `已上传 ${overridden} 个组织 Logo；${withLogo} 个组织当前有可用 Logo`;
+  badge.textContent = `自动匹配 ${automatic} / ${rows.length}`;
+  badge.title = `Hydro 校徽 ${automatic} 个；ICPC 默认 ${defaults} 个；手工覆盖 ${overridden} 个`;
   if (button) button.disabled = false;
   if (hint) {
-    hint.textContent = overridden
-      ? `已上传 ${overridden} 个组织 Logo，覆盖 ${overriddenTeams} 支队伍；可随时替换或恢复。`
-      : `共 ${rows.length} 个组织，${withLogo} 个已有 Logo；上传后该组织的所有队伍统一使用。`;
+    hint.textContent = `已自动匹配 ${automatic} 个学校 Logo，${defaults} 个使用 ICPC 默认 Logo。` +
+      (overridden ? `手工覆盖 ${overridden} 个组织、${overriddenTeams} 支队伍，可随时恢复。` : '可为组织上传图片，替换自动匹配结果。');
   }
 }
 
@@ -1239,20 +1267,11 @@ function renderLogoList() {
     const mark = document.createElement('span');
     mark.className = 'logo-org-mark';
     const preview = orgPreviewLogo(row);
-    if (isSafeLogo(preview)) {
-      const img = document.createElement('img');
-      img.alt = '';
-      img.decoding = 'async';
-      img.src = preview;
-      img.addEventListener('error', () => {
-        mark.textContent = shortLabel(row.name);
-        mark.classList.add('is-fallback');
-      });
-      mark.appendChild(img);
-    } else {
-      mark.textContent = shortLabel(row.name);
-      mark.classList.add('is-fallback');
-    }
+    const img = document.createElement('img');
+    img.alt = '';
+    img.decoding = 'async';
+    setLogoImage(img, isSafeLogo(preview) ? preview : DEFAULT_SCHOOL_LOGO);
+    mark.appendChild(img);
 
     const info = document.createElement('div');
     info.className = 'logo-org-info';
@@ -1262,12 +1281,11 @@ function renderLogoList() {
     name.textContent = row.name;
     name.title = row.name;
     nameLine.appendChild(name);
-    if (row.logoOverride) {
-      const badge = document.createElement('span');
-      badge.className = 'logo-org-badge';
-      badge.textContent = '已覆盖';
-      nameLine.appendChild(badge);
-    }
+    const badge = document.createElement('span');
+    badge.className = 'logo-org-badge';
+    badge.textContent = row.logoOverride ? '已覆盖' : logoSource(preview) === 'hydro' ? '自动匹配' :
+      preview === DEFAULT_SCHOOL_LOGO ? 'ICPC 默认' : '赛事 Logo';
+    nameLine.appendChild(badge);
     info.appendChild(nameLine);
 
     const meta = document.createElement('span');
@@ -1361,7 +1379,8 @@ function removeOrganizationLogo(orgId) {
   state.logoOriginals.delete(orgId);
   org.logo = original;
   org.logoOverride = false;
-  delete org.logoSource;
+  org.logoSource = logoSource(original);
+  state.contest = applySchoolLogos(state.contest);
   renderLogoList();
   renderSummary();
   schedulePersist();
@@ -1386,9 +1405,9 @@ function renderPhotoList() {
   const list = $('photoList');
   if (!list) return;
   const all = state.contest?.teams || [];
-  const organizations = new Map((state.contest?.organizations || []).map((org) => [String(org.id), org.name]));
+  const organizations = new Map((state.contest?.organizations || []).map((org) => [String(org.id), org]));
   const query = ($('photoSearch').value || '').trim().toLowerCase();
-  const rows = all.filter((team) => `${team.id} ${team.displayName || team.name} ${organizations.get(String(team.organizationId)) || ''}`.toLowerCase().includes(query));
+  const rows = all.filter((team) => `${team.id} ${team.displayName || team.name} ${organizations.get(String(team.organizationId))?.name || ''}`.toLowerCase().includes(query));
   const pages = Math.max(1, Math.ceil(rows.length / 40));
   photoPage = Math.max(0, Math.min(photoPage, pages - 1));
   $('photoCount').textContent = `${rows.length} 支队伍 · 共 ${all.filter((team) => team.photo).length} 张照片`;
@@ -1403,11 +1422,13 @@ function renderPhotoList() {
       img.addEventListener('error', () => { picture.textContent = '照片不可用'; }); picture.append(img);
     } else picture.textContent = '尚未设置照片';
     const logoBox = document.createElement('div'); logoBox.className = 'team-media-logo';
-    if (team.logo && isSafeLogo(team.logo)) { const img = document.createElement('img'); img.src = team.logo; img.alt = `${team.displayName || team.name}的队伍 Logo`; img.loading = 'lazy'; logoBox.append(img); }
-    else logoBox.textContent = 'Logo';
+    const logo = teamLogoUrl(team, organizations.get(String(team.organizationId)));
+    const logoImage = document.createElement('img');
+    logoImage.alt = `${team.displayName || team.name}的队伍 Logo`; logoImage.loading = 'lazy';
+    setLogoImage(logoImage, isSafeLogo(logo) ? logo : DEFAULT_SCHOOL_LOGO); logoBox.append(logoImage);
     const info = document.createElement('div'); info.className = 'photo-info';
     const title = document.createElement('strong'); title.textContent = team.displayName || team.name || team.id;
-    const detail = document.createElement('p'); detail.textContent = `ID ${team.id} · ${organizations.get(String(team.organizationId)) || '未设置组织'}`;
+    const detail = document.createElement('p'); detail.textContent = `ID ${team.id} · ${organizations.get(String(team.organizationId))?.name || '未设置组织'}`;
     info.append(title, detail);
     const actions = document.createElement('div'); actions.className = 'photo-actions';
     for (const [action, label] of [['upload-logo', team.logoOverride ? '替换队伍 Logo' : '上传队伍 Logo'], ...(team.logoOverride ? [['remove-logo', '恢复默认 Logo']] : []), ['upload', team.photo ? '替换照片' : '上传照片'], ...(team.photo ? [['remove', '移除照片']] : [])]) {
@@ -2106,7 +2127,7 @@ async function previewAwards() {
       const list = document.createElement('p'); list.textContent = award.teamIds.map((id) => teams.get(id) || id).join('、');
       section.append(title, list); target.append(section);
     }
-    if (!result.awards.length) target.textContent = '当前没有配置奖项，请选择自定义金银铜并设置名额。';
+    if (!result.awards.length) target.textContent = '当前没有获奖记录。可配置金银铜、开启冠亚季军，或选择已有通过记录的题目生成最快解题奖。';
   } catch (err) { target.textContent = `计算失败：${err.message}`; }
   finally { setBusy($('previewAwardsBtn'), false); }
 }
@@ -2140,7 +2161,7 @@ async function startResolve() {
   try {
     const result = await fetchJSON(API.game, {
       method: 'POST',
-      body: { contest: state.contest, options: state.options },
+      body: { contest: state.contest, options: state.options, publish: true },
       timeout: 120000,
     });
     const id = result && (result.id || (result.game && result.game.id));

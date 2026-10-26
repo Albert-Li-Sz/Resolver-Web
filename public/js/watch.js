@@ -1,7 +1,8 @@
 import { ResolverView } from './render/resolver-view.js';
 import { readJSONResponse } from './http.js';
 
-const id = new URLSearchParams(location.search).get('id');
+let id = new URLSearchParams(location.search).get('id');
+const followCurrent = !id;
 const $ = (name) => document.getElementById(name);
 let game = null;
 let view = null;
@@ -14,6 +15,42 @@ let checkingSession = false;
 let reconnectTimer;
 let reconnectAttempts = 0;
 let terminal = false;
+let currentTimer;
+let findingCurrent = false;
+
+function waitingForHost() {
+  $('error').hidden = true;
+  $('loading').hidden = false;
+  $('hud').hidden = true;
+  $('loading-title').textContent = '等待主持人开始滚榜';
+  $('loading-hint').textContent = '本页会自动接入当前滚榜，无需刷新或登录。';
+}
+
+async function findCurrent() {
+  if (!followCurrent || findingCurrent) return;
+  findingCurrent = true;
+  clearTimeout(currentTimer);
+  try {
+    const response = await fetch('/api/watch/current', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const current = await readJSONResponse(response);
+    if (current.id !== id) {
+      source?.close(); source = null;
+      clearTimeout(reconnectTimer); reconnectTimer = null;
+      id = current.id || null; view = null; game = null; playback = null; terminal = false;
+      if (id) {
+        $('loading-title').textContent = '正在连接滚榜';
+        $('loading-hint').textContent = current.name || '连接成功后自动跟随主持端…';
+      }
+    }
+    if (!id) waitingForHost();
+    else if (!view && !booting) await boot();
+  } catch {
+    if (!view) { waitingForHost(); $('loading-hint').textContent = '暂时无法连接服务，正在自动重试…'; }
+  } finally {
+    findingCurrent = false;
+    currentTimer = setTimeout(findCurrent, 3000);
+  }
+}
 
 function status(text, disconnected = false) {
   $('connection-status').textContent = text;
@@ -27,7 +64,8 @@ function progress(next) {
   playback = next;
   $('hud-step-count').textContent = `${next.currentAction} / ${next.totalActions}`;
   $('progress-bar').style.width = `${next.totalActions ? next.currentAction / next.totalActions * 100 : 0}%`;
-  status(next.currentAction >= next.totalActions ? '滚榜结束 · 可留屏观看' : '已同步 · 跟随主持端');
+  status(next.currentAction >= next.totalActions ? '滚榜结束 · 可留屏观看' :
+    view?.animationSpeed === 4 ? '4 倍速快进 · 跟随主持端' : '已同步 · 跟随主持端');
 }
 
 function snapshot(data) {
@@ -73,6 +111,8 @@ function connect() {
     progress(data.playback);
   });
   source.addEventListener('expired', () => {
+    if (source !== stream) return;
+    if (followCurrent) { source?.close(); source = null; id = null; view = null; terminal = false; waitingForHost(); findCurrent(); return; }
     terminal = true;
     clearTimeout(reconnectTimer);
     source.close();
@@ -107,7 +147,8 @@ function showError(message) {
 
 async function boot() {
   if (booting) return;
-  if (!id) return showError('链接中缺少会话 ID，请使用组织者提供的完整观众链接。');
+  if (!id) { if (followCurrent) return findCurrent(); return showError('链接中缺少会话 ID，请使用组织者提供的完整观众链接。'); }
+  const requestedId = id;
   booting = true;
   terminal = false;
   source?.close();
@@ -115,9 +156,12 @@ async function boot() {
   $('loading').hidden = false;
   try {
     const response = await fetch(`/api/watch/${encodeURIComponent(id)}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+    if (id !== requestedId) return;
+    if (response.status === 404 && followCurrent) { id = null; waitingForHost(); return; }
     if (response.status === 404) terminal = true;
     const data = await readJSONResponse(response);
     await document.fonts.load('700 40px "Helvetica Plain"').catch(() => {});
+    if (id !== requestedId) return;
     playback = null;
     snapshot(data);
     $('hud-contest').textContent = game.contest.formalName || game.contest.name;
@@ -167,8 +211,8 @@ document.addEventListener('visibilitychange', () => {
   lastFrame = performance.now();
   if (!document.hidden && view && !terminal && (!source || source.readyState === EventSource.CLOSED)) scheduleReconnect();
 });
-window.addEventListener('pagehide', () => { clearTimeout(reconnectTimer); reconnectTimer = null; source?.close(); });
-window.addEventListener('pageshow', (event) => { if (event.persisted && view) connect(); });
+window.addEventListener('pagehide', () => { clearTimeout(currentTimer); clearTimeout(reconnectTimer); reconnectTimer = null; source?.close(); });
+window.addEventListener('pageshow', (event) => { if (event.persisted) { if (followCurrent) findCurrent(); if (view) connect(); } });
 // Read-only diagnostics, useful for checking synchronisation during a rehearsal.
 window.ICPCSpectator = { get view() { return view; }, get playback() { return playback; } };
 function frame(now) {

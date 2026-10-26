@@ -6,6 +6,7 @@ export class SessionStore {
   constructor({ ttl = 6 * 60 * 60 * 1000, maxGames = 80, activeGrace = 120_000,
     maxBytes = LIMITS.sessionBytes, maxClients = 500, maxClientsPerGame = 100, now = Date.now } = {}) {
     this.games = new Map();
+    this.activeGameId = null;
     this.ttl = ttl;
     this.maxGames = maxGames;
     this.now = now;
@@ -25,6 +26,7 @@ export class SessionStore {
       client.end();
     }
     this.games.delete(id);
+    if (this.activeGameId === id) this.activeGameId = null;
     this.bytes -= entry.bytes;
   }
 
@@ -66,6 +68,15 @@ export class SessionStore {
     const entry = this.games.get(id);
     if (entry && touch) entry.touchedAt = this.now();
     return entry;
+  }
+
+  publish(entry) {
+    if (this.games.get(entry.id) !== entry) throw inputError('滚榜会话不存在', 404);
+    this.activeGameId = entry.id;
+  }
+
+  current() {
+    return this.activeGameId ? this.get(this.activeGameId, { touch: false }) : null;
   }
 
   playback(entry) {

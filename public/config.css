@@ -211,6 +211,9 @@ kbd { padding: 2px 6px; border: 1px solid var(--hairline); border-radius: 4px; b
 .award-preview { margin-top: 18px; padding: 18px; border: 1px solid var(--hairline); border-radius: 5px; }
 .award-preview section + section { margin-top: 14px; }
 .award-preview p { color: var(--steel); margin-top: 5px; font-size: 13px; overflow-wrap: anywhere; }
+.problem-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-top: 12px; }
+.problem-choice { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 5px; font-size: 13px; overflow-wrap: anywhere; cursor: pointer; }
+.problem-choice input { flex: none; width: 16px; height: 16px; margin-top: 2px; accent-color: var(--blue); }
 /* Preview chrome - iframe scoreboard is intentionally independent. */
 .preview-status { display: inline-flex; align-items: center; gap: 8px; padding: 0 0 14px; color: var(--steel); font-size: 12px; }
 .preview-status[data-state='ready'] { color: var(--success); }
