@@ -4,7 +4,7 @@
 - [使用指南源文档](使用指南.md)：便于在 GitHub 直接阅读、检索和维护。
 - [测试与验收记录](TESTING.md)：自动化回归、Browser 实测、部署及榜单保护检查。
 - [UI 设计说明](DESIGN.md)：参考来源、设计规范与界面校对。
-- [部署教程](../README.md#部署)：Node.js、Docker Compose、Nginx / 1Panel、升级和备份。
+- [部署教程](部署说明.md)：Node.js、Docker Compose、Nginx / 1Panel、升级和备份。
 - [示例榜单](../examples/README.md)：五种场景及直接下载链接。
 
 `images/` 为本版本使用 Browser 插件实测时保存的应用截图。PDF 的内容源文件和生成脚本也随仓库提供。
