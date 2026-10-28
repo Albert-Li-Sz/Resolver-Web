@@ -46,8 +46,8 @@ function requestPinned(url, { address, family, signal, headers }) {
 }
 
 /** A single deadline covers DNS, every redirect and the decompressed body. */
-export async function fetchFeedText(input, {
-  timeoutMs = 25_000, maxBytes = LIMITS.feedBytes, fetchImpl = requestPinned, lookupImpl = lookup,
+export async function fetchRemoteBytes(input, {
+  accept = 'application/json, application/x-ndjson, text/plain', timeoutMs = 25_000, maxBytes = LIMITS.feedBytes, fetchImpl = requestPinned, lookupImpl = lookup,
   allowedOrigins = (process.env.RESOLVER_FEED_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
 } = {}) {
   const controller = new AbortController();
@@ -66,7 +66,7 @@ export async function fetchFeedText(input, {
       if (!addresses.length || addresses.some(({ address }) => !isIP(address) || (!explicitlyAllowed && !isPublicAddress(address)))) throw inputError('禁止抓取回环、内网、链路本地或保留地址；局域网 CDS 请由管理员配置允许的来源');
       const response = await fetchImpl(url, {
         ...addresses[0], signal: controller.signal, redirect: 'manual',
-        headers: { accept: 'application/json, application/x-ndjson, text/plain', 'accept-encoding': 'identity' },
+        headers: { accept, 'accept-encoding': 'identity' },
       });
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
@@ -77,8 +77,7 @@ export async function fetchFeedText(input, {
       }
       if (!response.ok) { await response.body?.cancel(); throw inputError(`远程服务器返回 ${response.status}`, 502); }
       const reader = response.body?.getReader();
-      if (!reader) return '';
-      const decoder = new TextDecoder();
+      if (!reader) return { buffer: Buffer.alloc(0), contentType: response.headers.get('content-type') };
       const chunks = [];
       let bytes = 0;
       try {
@@ -87,10 +86,9 @@ export async function fetchFeedText(input, {
           if (done) break;
           bytes += value.byteLength;
           if (bytes > maxBytes) { await reader.cancel(); throw inputError('远程事件流文件过大', 413); }
-          chunks.push(decoder.decode(value, { stream: true }));
+          chunks.push(Buffer.from(value));
         }
-        chunks.push(decoder.decode());
-        return chunks.join('');
+        return { buffer: Buffer.concat(chunks), contentType: response.headers.get('content-type') };
       } finally { reader.releaseLock(); }
     }
   };
@@ -100,4 +98,9 @@ export async function fetchFeedText(input, {
     if (err.expose) throw err;
     throw inputError('远程请求失败，请检查地址与网络连接', 502);
   } finally { clearTimeout(timer); }
+}
+
+export async function fetchFeedText(input, options) {
+  const { buffer } = await fetchRemoteBytes(input, options);
+  return buffer.toString('utf8');
 }

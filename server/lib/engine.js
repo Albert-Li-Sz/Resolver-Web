@@ -448,8 +448,7 @@ export function parseEventFeed(text, { scoringMode = 'auto' } = {}) {
     const limit = ({ team: LIMITS.teams, problem: LIMITS.problems, organization: LIMITS.organizations,
       submission: LIMITS.submissions, award: LIMITS.awards })[type] ?? LIMITS.events;
     if (!previous && map.size >= limit) throw inputError(`${type} 数量超出上限 ${limit}`, 413);
-    if (previous && op === 'update') map.set(id, { ...previous, ...data });
-    else map.set(id, { ...(previous || {}), ...data });
+    map.set(id, { ...(previous || {}), ...data, id });
   };
 
   for (const event of events) apply(event);
@@ -629,12 +628,30 @@ function normalizeLogo(value) {
   return typeof value === 'string' ? usableAsset(value) : null;
 }
 
+function withRecordIds(records = [], prefix) {
+  if (records.every((record) => record.id != null)) return records;
+  const used = new Set(records.filter((record) => record.id != null).map((record) => String(record.id)));
+  return records.map((record, index) => {
+    if (record.id != null) return record;
+    const base = `${prefix}-${index}`;
+    let id = base, suffix = 0;
+    while (used.has(id)) id = `${base}-${++suffix}`;
+    used.add(id);
+    return { ...record, id };
+  });
+}
+
 /**
  * Return a clean, internally consistent contest object. Accepts contests with
  * camelCase or CCS snake_case fields and fills in cross-references.
  */
 export function normalizeContest(input) {
   validateContestInput(input);
+  // Reserve explicit IDs before allocating missing ones, including IDs later
+  // in the input. Otherwise unrelated records can collapse into one result.
+  input = { ...input, ...Object.fromEntries([
+    ['teams', 'team'], ['problems', 'problem'], ['organizations', 'org'], ['submissions', 'submission'], ['awards', 'award'],
+  ].map(([field, prefix]) => [field, withRecordIds(input[field] || [], prefix)])) };
 
   const durationRaw = input.durationMs ?? input.duration ?? 5 * 60 * 60 * 1000;
   const parsedDurationMs = normalizeDurationValue(durationRaw, 5 * 60 * 60 * 1000);
@@ -650,7 +667,7 @@ export function normalizeContest(input) {
   const organizations = (Array.isArray(input.organizations) ? input.organizations : []).map((o, i) => ({
     id: String(o.id ?? `org-${i}`),
     name: o.name ?? o.formalName ?? o.formal_name ?? String(o.id ?? `org-${i}`),
-    formalName: o.formalName ?? o.formal_name ?? o.name ?? null,
+    formalName: o.formalName ?? o.formal_name ?? o.name ?? String(o.id ?? `org-${i}`),
     country: o.country ?? null,
     logo: normalizeLogo(o.logo),
     logoSource: ['hydro', 'default', 'manual', 'library'].includes(o.logoSource) ? o.logoSource : undefined,

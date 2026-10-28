@@ -20,6 +20,9 @@ try {
 } catch { /* preserve the URL token as a refresh fallback */ }
 let revision = 0;
 let transitioning = false;
+let connected = true;
+let syncing = false;
+let mutationEpoch = 0;
 let ended = false;
 let pollTimer;
 const canvas = document.getElementById('screen');
@@ -67,6 +70,15 @@ const fastForward = new AutomaticAdvance({
   advance: (target) => moveTo(target, { automatic: true }),
   changed: () => { if (game) updateHud(); },
 });
+
+function connectionStatus(online) {
+  connected = online;
+  document.body.classList.toggle('disconnected', !online);
+  const badge = document.getElementById('hud-connection');
+  if (badge) badge.textContent = online ? '进度已保存' : '连接中断 · 已暂停，等待同步';
+  if (!online) fastForward.stop();
+  updateHud();
+}
 
 function showError(message) {
   fastForward.stop();
@@ -136,9 +148,10 @@ function updateHud() {
     btnFast.hidden = !canFastForward;
     btnFast.textContent = fastForward.active ? '暂停 4 倍速' : '继续 4 倍速';
   }
-  btnPrev.disabled = transitioning || actionPos <= 0;
-  btnNext.disabled = transitioning || actionPos >= total - 1;
-  btnRestart.disabled = transitioning;
+  btnPrev.disabled = !connected || transitioning || actionPos <= 0;
+  btnNext.disabled = !connected || transitioning || actionPos >= total - 1;
+  btnRestart.disabled = !connected || transitioning;
+  if (btnFast) btnFast.disabled = !connected || transitioning;
   document.body.classList.toggle('is-paused', mode === 'paused' || mode === 'end');
 }
 
@@ -180,16 +193,16 @@ function goToStart() {
   return moveTo(startTarget(), { instant: true });
 }
 
-async function moveTo(targetIndex, { instant = false, automatic = false } = {}) {
+async function moveTo(targetIndex, { instant = false, automatic = false, relative = 0 } = {}) {
   if (instant) fastForward.stop();
-  if (!game || ended || transitioning || !actionIndices.includes(targetIndex)) return false;
+  if (!game || ended || !connected || transitioning || !actionIndices.includes(targetIndex)) return false;
   if (isPreview) {
     if (instant) rebuildTo(targetIndex);
     else applyActionAt(actionIndices.indexOf(targetIndex));
     return true;
   }
+  mutationEpoch++;
   transitioning = true;
-  const delta = actionIndices.indexOf(targetIndex) - actionPos;
   updateHud();
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -208,8 +221,7 @@ async function moveTo(targetIndex, { instant = false, automatic = false } = {}) 
       revision = data.playback.revision;
       rebuildTo(data.playback.index);
       if (automatic) return false;
-      if (!instant && delta === 1) targetIndex = actionIndices[Math.min(actionIndices.length - 1, actionPos + 1)];
-      else if (instant && delta === -1) targetIndex = actionIndices[Math.max(0, actionPos - 1)];
+      if (relative) targetIndex = actionIndices[Math.max(0, Math.min(actionIndices.length - 1, actionPos + relative))];
       if (attempt === 2) toast('主持进度更新频繁，已同步，请再次操作');
       continue;
     }
@@ -220,7 +232,8 @@ async function moveTo(targetIndex, { instant = false, automatic = false } = {}) 
       return true;
     }
   } catch (err) {
-    toast(`${err.name === 'TimeoutError' ? '连接超时' : err.message}，请重试`);
+    connectionStatus(false);
+    toast(`${err.name === 'TimeoutError' ? '连接超时' : err.message}，等待同步后继续`);
   } finally {
     transitioning = false;
     updateHud();
@@ -228,22 +241,27 @@ async function moveTo(targetIndex, { instant = false, automatic = false } = {}) 
 }
 
 async function syncPlayback() {
-  if (ended || isPreview || !game) return;
+  if (ended || isPreview || !game || syncing) return;
+  clearTimeout(pollTimer);
+  syncing = true;
   if (!transitioning) {
     const before = revision;
+    const epoch = mutationEpoch;
     try {
       const response = await fetch(`/api/game/${encodeURIComponent(gameId)}/playback`, {
         cache: 'no-store', headers: { 'X-Resolver-Control': controlToken || '' }, signal: AbortSignal.timeout(8000),
       });
-      if ([403, 404].includes(response.status)) { showError('主持会话已结束或控制权限失效，请返回配置中心重新开始'); return; }
+      if ([403, 404].includes(response.status)) { syncing = false; showError('主持会话已结束或控制权限失效，请返回配置中心恢复直播'); return; }
       const data = await readJSONResponse(response);
-      if (!transitioning && revision === before && data.playback.revision > revision) {
+      if (!transitioning && epoch === mutationEpoch && revision === before && data.playback.revision !== revision) {
         fastForward.stop();
         revision = data.playback.revision;
         rebuildTo(data.playback.index);
       }
-    } catch { /* Poll again after a transient transport failure. */ }
+      if (!transitioning && epoch === mutationEpoch) connectionStatus(true);
+    } catch { if (!transitioning && epoch === mutationEpoch) connectionStatus(false); }
   }
+  syncing = false;
   if (!ended) pollTimer = setTimeout(syncPlayback, 2000);
 }
 
@@ -265,7 +283,7 @@ async function goNext() {
     updateHud();
     return;
   }
-  const moved = await moveTo(actionIndices[actionPos + 1]);
+  const moved = await moveTo(actionIndices[actionPos + 1], { relative: 1 });
   if (moved && !isPreview) fastForward.start();
   return moved;
 }
@@ -273,7 +291,7 @@ async function goNext() {
 function goPrevious() {
   fastForward.stop();
   if (!game || actionPos <= 0) return;
-  return moveTo(actionIndices[actionPos - 1], { instant: true });
+  return moveTo(actionIndices[actionPos - 1], { instant: true, relative: -1 });
 }
 
 function restart() {
@@ -429,7 +447,13 @@ function boot() {
         rebuildTo(target >= 0 ? target : 0);
       } else {
         rebuildTo(data.playback?.index ?? startTarget());
-        toast('手动模式：右键 / → 下一步，左键 / ← 上一步');
+        toast(data.playback?.revision > 0 ? '已恢复保存进度，等待手动继续' : '手动模式：右键 / → 下一步，左键 / ← 上一步');
+        const media = document.getElementById('hud-media');
+        if (media && data.mediaReport) {
+          media.hidden = false;
+          media.textContent = data.mediaReport.failed ? `素材 ${data.mediaReport.failed} 项回退` : '素材已就绪';
+          media.title = `已缓存 ${data.mediaReport.cached} / ${data.mediaReport.total} 张；下载失败的校徽使用 ICPC Logo，照片使用赛事 Logo。可回配置中心检查后重新开始。`;
+        }
         syncPlayback();
       }
       view?.resize?.();
@@ -493,15 +517,18 @@ document.getElementById('copy-viewer').addEventListener('click', async () => {
 // Presentation controls on the stage: right click = next, left click = previous.
 const stageEl = document.getElementById('stage');
 stageEl?.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0 || event.ctrlKey || event.metaKey) return;
+  if (document.body.classList.contains('display-open') || event.button !== 0 || event.ctrlKey || event.metaKey) return;
   if (event.pointerType === 'mouse') goPrevious();
   else goNext();
 });
+window.addEventListener('resolver-calibrating', () => fastForward.stop());
+window.addEventListener('offline', () => connectionStatus(false));
+window.addEventListener('online', () => syncPlayback());
 window.addEventListener('pagehide', () => { fastForward.stop(); clearTimeout(pollTimer); });
 window.addEventListener('pageshow', (event) => { if (event.persisted && game && !ended) syncPlayback(); });
 stageEl?.addEventListener('contextmenu', (event) => {
   event.preventDefault();
-  goNext();
+  if (!document.body.classList.contains('display-open')) goNext();
 });
 
 // Keep the fullscreen control bar up while it is hovered or focused.

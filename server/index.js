@@ -1,10 +1,11 @@
+import { cacheRemoteMedia } from './lib/remote-media.js';
 import { mediaLibrary } from './lib/media-library.js';
 import { ASSET_DIR, saveImage } from './lib/assets.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { fetchFeedText } from './lib/remote-feed.js';
-import { SessionStore } from './lib/sessions.js';
+import { LiveSessionStore } from './lib/live-session.js';
 import { deleteConfig, getConfig, listConfigs, saveConfig } from './lib/store.js';
 import { equalSecret, managementAccess } from './lib/access.js';
 import { engineJob } from './lib/engine-job.js';
@@ -30,7 +31,8 @@ app.use(managementAccess);
 app.use('/api/parse', express.text({ type: ['text/plain', 'application/x-ndjson'], limit: LIMITS.feedBytes }));
 app.use(express.json({ limit: LIMITS.jsonBytes }));
 
-const sessions = new SessionStore();
+const sessions = new LiveSessionStore();
+await sessions.restore();
 
 function ok(res, payload) {
   res.json(payload);
@@ -103,6 +105,10 @@ app.delete('/api/media-library/:id', async (req, res, next) => {
   catch (err) { next(err); }
 });
 
+app.post('/api/assets/cache', async (req, res) => {
+  ok(res, await cacheRemoteMedia(req.body?.urls));
+});
+
 app.post('/api/assets', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp'], limit: '4mb' }), async (req, res, next) => {
   try { ok(res, await saveImage(req.body, req.get('Content-Type'))); }
   catch (err) { next(err); }
@@ -128,8 +134,11 @@ app.post('/api/game', async (req, res, next) => {
     }
     const game = await engineJob('game', contest, options || {});
     if (!game || !Array.isArray(game.steps)) return fail(res, 500, '滚榜步骤生成失败');
+    if (req.body.mediaReport && ['total', 'cached', 'failed'].every((key) => Number.isInteger(req.body.mediaReport[key]) && req.body.mediaReport[key] >= 0 && req.body.mediaReport[key] <= 20000)) {
+      game.mediaReport = Object.fromEntries(['total', 'cached', 'failed'].map((key) => [key, req.body.mediaReport[key]]));
+    }
     const entry = sessions.create(game);
-    if (req.body.publish === true) sessions.publish(entry);
+    if (req.body.publish === true) await sessions.publish(entry);
     res.setHeader('Cache-Control', 'no-store');
     ok(res, { id: entry.id, game: entry.game, controlToken: entry.controlToken });
   } catch (err) {
@@ -162,16 +171,33 @@ app.get('/api/game/:id/playback', (req, res) => {
   if (entry) res.json({ playback: sessions.playback(entry) });
 });
 
-app.put('/api/game/:id/playback', (req, res) => {
+app.put('/api/game/:id/playback', async (req, res) => {
   const entry = findSession(req, res, true);
   if (!entry) return;
-  const result = sessions.move(entry, req.body?.index, req.body?.revision);
+  const result = await sessions.move(entry, req.body?.index, req.body?.revision);
   res.status(result.status || 200).json(result);
+});
+
+// Management-only recovery; never put presenter capabilities in public APIs.
+app.get('/api/live', (req, res) => {
+  const entry = sessions.current();
+  ok(res, { session: entry ? { id: entry.id, name: entry.game.contest.formalName || entry.game.contest.name,
+    playback: sessions.playback(entry), savedAt: entry.savedAt } : null });
+});
+app.post('/api/live/resume', (req, res) => {
+  const entry = sessions.current();
+  if (!entry) return fail(res, 404, '没有可恢复的直播');
+  ok(res, { id: entry.id, controlToken: entry.controlToken });
 });
 
 app.get('/api/watch/current', (req, res) => {
   const entry = sessions.current();
   ok(res, { id: entry?.id || null, name: entry?.game.contest.name || null });
+});
+
+// Reconnection probes must not construct/download the entire scoreboard.
+app.head('/api/watch/:id', (req, res) => {
+  if (findSession(req, res)) res.status(204).end();
 });
 
 app.get('/api/watch/:id', (req, res) => {

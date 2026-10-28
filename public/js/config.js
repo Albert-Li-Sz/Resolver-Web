@@ -1,3 +1,4 @@
+import { prepareOfflineContest } from './offline-media.js';
 import { FREEZE_DEFAULTS, normalizeFreezeOptions, withFreezeOptions } from './freeze.js';
 import { applyMediaLibrary, preserveContestMedia } from './media-library.js';
 import { MediaLibraryUI } from './media-library-ui.js';
@@ -42,6 +43,7 @@ const LOGO_STRIP_LIMIT = 18;
 
 const state = {
   contest: null,
+  contestLoadToken: 0,
   stats: null,
   options: { ...DEFAULT_OPTIONS },
   optionsRestored: false,
@@ -117,6 +119,7 @@ function init() {
     clearTimeout(state.persistTimer); state.persistTimer = null;
     const current = readSavedState();
     if (!current) return;
+    state.contestLoadToken++;
     rememberState();
     if (current.options) state.options = current.options;
     state.lastPresetName = current.lastPresetName;
@@ -165,11 +168,13 @@ function usableContest() {
 }
 
 async function boot(saved) {
+  const token = state.contestLoadToken;
   await loadConfigs({ silent: true, keepLoading: true });
   if (state.apiOnline) {
     try { await libraryUI.load(); }
     catch (err) { showToast(`赛前素材库加载失败：${err.message}`, 'error'); }
   }
+  if (token !== state.contestLoadToken) return;
 
   if (state.apiOnline) {
     if (saved && saved.contest) {
@@ -414,6 +419,7 @@ function updateOptionOutputs() {
 
 function commitOptions() {
   state.game = null; state.gameId = null;
+  if ($('awardPreview')) $('awardPreview').hidden = true;
   updateOptionOutputs();
   schedulePersist();
   schedulePreview(PREVIEW_DEBOUNCE_MS);
@@ -645,6 +651,7 @@ function bindEvents() {
 
   // Start -----------------------------------------------------------------
   on('startBtn', 'click', startResolve);
+  on('prepareMediaBtn', 'click', prepareMedia);
 
   window.addEventListener('pagehide', flushPersist);
   window.addEventListener('beforeunload', flushPersist);
@@ -751,6 +758,7 @@ async function handleFile(file) {
   }
 
   if (!confirmReplacement('导入事件流')) return;
+  const token = ++state.contestLoadToken;
   state.busy.parse = true;
   setFileStatus({
     name,
@@ -760,6 +768,7 @@ async function handleFile(file) {
 
   try {
     const text = await file.text();
+    if (token !== state.contestLoadToken) return;
     if (!text.trim()) {
       throw apiError('文件内容为空');
     }
@@ -771,6 +780,7 @@ async function handleFile(file) {
       raw: true,
       timeout: 120000,
     });
+    if (token !== state.contestLoadToken) return;
     const contest = extractContest(result);
     if (!isContestLike(contest)) {
       throw apiError('解析结果缺少赛事数据');
@@ -789,6 +799,7 @@ async function handleFile(file) {
     });
     showToast(`事件流解析成功：${contest.name || name}`, 'success');
   } catch (err) {
+    if (token !== state.contestLoadToken) return;
     if (err.status === 0) setApiStatus(false);
     setFileStatus({ name, meta: `解析失败：${err.message}`, state: 'error' });
     showToast(`解析失败：${err.message}`, 'error');
@@ -810,6 +821,7 @@ function setFileStatus({ name, meta, state: status }) {
 }
 
 function resetFileStatus() {
+  if (!$('fileStatus')) return;
   $('fileStatus').hidden = true;
   $('fileStatus').classList.remove('is-error');
   $('fileMeta').textContent = '等待解析';
@@ -851,6 +863,7 @@ async function fetchRemote() {
   }
 
   if (!confirmReplacement('载入远程赛事')) return;
+  const token = ++state.contestLoadToken;
   state.busy.remote = true;
   setBusy($('fetchRemoteBtn'), true, '获取中…');
 
@@ -860,6 +873,7 @@ async function fetchRemote() {
       body: { url },
       timeout: 30000,
     });
+    if (token !== state.contestLoadToken) return;
     const contest = extractContest(result);
     if (!isContestLike(contest)) {
       throw apiError('远程响应中缺少赛事数据');
@@ -873,6 +887,7 @@ async function fetchRemote() {
     showInlineNote(`已从 ${parsed.host} 载入赛事数据。`, 'info');
     showToast(`远程赛事已载入：${contest.name || parsed.host}`, 'success');
   } catch (err) {
+    if (token !== state.contestLoadToken) return;
     if (err.status === 404 || err.status === 405 || err.status === 501) {
       showInlineNote('远程抓取暂不支持：请下载事件流文件后使用「上传文件」载入。', 'info');
       showToast('远程抓取暂不支持，请改用上传文件。', 'info');
@@ -902,6 +917,9 @@ function showInlineNote(message, type) {
 
 function applyContest(contest, { stats = null, source = 'upload', sourceName = '', options = null, mediaMatchReport = null } = {}) {
   if (!isContestLike(contest)) return;
+  state.contestLoadToken++;
+  if (source !== 'upload') resetFileStatus();
+  if ($('awardPreview')) $('awardPreview').hidden = true;
   contest = applySchoolLogos(contest);
   state.mediaMatchReport = mediaMatchReport;
   libraryUI.clearReport();
@@ -1610,6 +1628,12 @@ function getFreezeMs(contest) {
 function schedulePreview(delay = PREVIEW_DEBOUNCE_MS) {
   // Only the dedicated preview page (or an embedded preview) has the frame.
   if (!$('previewFrame')) return;
+  // Invalidate immediately, not after the debounce: an older response may
+  // arrive while the new configuration is waiting to be rendered.
+  state.previewToken++;
+  state.busy.preview = false;
+  state.game = null; state.gameId = null;
+  setBusy($('refreshPreviewBtn'), false);
   clearTimeout(state.previewTimer);
   state.previewTimer = null;
 
@@ -1975,16 +1999,19 @@ function onConfigListClick(event) {
 
 async function applyPreset(record) {
   if (!confirmReplacement('载入配置预设')) return;
+  const token = ++state.contestLoadToken;
   let full = record;
   if (record && record.hasContest && !isContestLike(record.contest)) {
     try {
       full = await fetchJSON(`${API.configs}/${encodeURIComponent(record.id)}`, { timeout: 20000 });
     } catch (err) {
+      if (token !== state.contestLoadToken) return;
       showToast(`读取配置「${record.name || '未命名配置'}」失败：${err.message}`, 'error');
       return;
     }
   }
 
+  if (token !== state.contestLoadToken) return;
   const config = normalizeConfig(full.config ?? full.options);
   state.options = sanitizeOptions(config, { singleStepIsEngine: true });
   syncOptionControls();
@@ -2136,6 +2163,23 @@ async function previewAwards() {
    Start resolving
    ========================================================================== */
 
+async function prepareMedia() {
+  if (!usableContest()) return showToast('请先载入赛事。', 'error');
+  const button = $('prepareMediaBtn');
+  if (button.disabled) return;
+  button.disabled = true;
+  const token = state.contestLoadToken;
+  try {
+    const { report } = await prepareOfflineContest(state.contest, {
+      onProgress: (done, total) => { $('offlineMediaReport').textContent = `正在准备 ${done} / ${total} 张素材…`; },
+    });
+    $('offlineMediaReport').textContent = token !== state.contestLoadToken ? '赛事已切换，请重新检查当前赛事素材。' : report.failed
+      ? `已缓存 ${report.cached} / ${report.total} 张；${report.failed} 张未就绪。${report.reasons.join('；')}。可检查网络或手动上传后重新检查。直接开场时，失败的校徽使用 ICPC Logo，照片使用赛事 Logo。`
+      : `素材已就绪：${report.cached} 张图片已保存在本地。开场不依赖外网；主持与大屏仍需连接 Node 服务。`;
+  } catch (err) { $('offlineMediaReport').textContent = `检查失败：${err.message}`; }
+  finally { button.disabled = false; }
+}
+
 async function startResolve() {
   if (state.busy.start) return;
   if (!usableContest()) { showToast(state.source === 'offline' ? '请重新载入有效赛事，离线演示不能开始滚榜。' : '请先上传赛事事件流，再开始滚榜。', 'error'); return; }
@@ -2159,9 +2203,15 @@ async function startResolve() {
   setBusy($('startBtn'), true, '构建中…');
 
   try {
+    const launchContest = structuredClone(state.contest);
+    const launchOptions = structuredClone(state.options);
+    const prepared = await prepareOfflineContest(launchContest, {
+      onProgress: (done, total) => setBusy($('startBtn'), true, `准备素材 ${done}/${total}`),
+    });
+    setBusy($('startBtn'), true, '保存直播…');
     const result = await fetchJSON(API.game, {
       method: 'POST',
-      body: { contest: state.contest, options: state.options, publish: true },
+      body: { contest: prepared.contest, options: launchOptions, publish: true, mediaReport: prepared.report },
       timeout: 120000,
     });
     const id = result && (result.id || (result.game && result.game.id));

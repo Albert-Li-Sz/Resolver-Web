@@ -18,6 +18,17 @@ let terminal = false;
 let currentTimer;
 let findingCurrent = false;
 
+function changeSession(nextId) {
+  source?.close(); source = null;
+  clearTimeout(reconnectTimer); reconnectTimer = null;
+  view?.dispose();
+  id = nextId || null; view = null; game = null; playback = null;
+  terminal = false; reconnectAttempts = 0;
+  $('error').hidden = true;
+  $('loading').hidden = false;
+  $('hud').hidden = true;
+}
+
 function waitingForHost() {
   $('error').hidden = true;
   $('loading').hidden = false;
@@ -34,9 +45,7 @@ async function findCurrent() {
     const response = await fetch('/api/watch/current', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
     const current = await readJSONResponse(response);
     if (current.id !== id) {
-      source?.close(); source = null;
-      clearTimeout(reconnectTimer); reconnectTimer = null;
-      id = current.id || null; view = null; game = null; playback = null; terminal = false;
+      changeSession(current.id);
       if (id) {
         $('loading-title').textContent = '正在连接滚榜';
         $('loading-hint').textContent = current.name || '连接成功后自动跟随主持端…';
@@ -79,7 +88,7 @@ function snapshot(data) {
 function scheduleReconnect() {
   if (terminal || reconnectTimer || navigator.onLine === false) return;
   const delay = Math.min(15_000, 500 * 2 ** Math.min(reconnectAttempts++, 5));
-  if (reconnectAttempts >= 5) showError('连接仍未恢复，正在自动重试；也可点击重试。');
+  if (reconnectAttempts >= 5 && !view) showError('连接仍未恢复，正在自动重试；也可点击重试。');
   reconnectTimer = setTimeout(() => { reconnectTimer = null; if (view) connect(); else boot(); }, delay);
 }
 
@@ -112,7 +121,7 @@ function connect() {
   });
   source.addEventListener('expired', () => {
     if (source !== stream) return;
-    if (followCurrent) { source?.close(); source = null; id = null; view = null; terminal = false; waitingForHost(); findCurrent(); return; }
+    if (followCurrent) { changeSession(null); waitingForHost(); findCurrent(); return; }
     terminal = true;
     clearTimeout(reconnectTimer);
     source.close();
@@ -120,14 +129,15 @@ function connect() {
   });
   source.onerror = async () => {
     if (source !== stream || terminal) return;
-    status('连接中断 · 正在重连', true);
+    status('连接中断 · 保留画面，正在重连', true);
     stream.close();
     scheduleReconnect();
     if (checkingSession || navigator.onLine === false) return;
     checkingSession = true;
     try {
-      const response = await fetch(`/api/watch/${encodeURIComponent(id)}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      const response = await fetch(`/api/watch/${encodeURIComponent(id)}`, { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (response.status === 404 && source === stream) {
+        if (followCurrent) { changeSession(null); waitingForHost(); findCurrent(); return; }
         terminal = true;
         clearTimeout(reconnectTimer);
         stream.close();
@@ -157,7 +167,7 @@ async function boot() {
   try {
     const response = await fetch(`/api/watch/${encodeURIComponent(id)}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
     if (id !== requestedId) return;
-    if (response.status === 404 && followCurrent) { id = null; waitingForHost(); return; }
+    if (response.status === 404 && followCurrent) { changeSession(null); waitingForHost(); return; }
     if (response.status === 404) terminal = true;
     const data = await readJSONResponse(response);
     await document.fonts.load('700 40px "Helvetica Plain"').catch(() => {});
@@ -171,9 +181,14 @@ async function boot() {
     connect();
     activity();
   } catch (err) {
+    if (id !== requestedId) return;
     showError(err.name === 'TimeoutError' ? '连接超时，请检查网络后重试。' : err.message);
     scheduleReconnect();
-  } finally { booting = false; }
+  } finally {
+    booting = false;
+    // A session switch may occur while the old request is still in flight.
+    if (id && id !== requestedId && !view) boot();
+  }
 }
 
 function activity() {
@@ -196,6 +211,7 @@ document.addEventListener('fullscreenchange', () => {
 $('retry').addEventListener('click', boot);
 $('btn-full').addEventListener('click', fullscreen);
 window.addEventListener('keydown', (event) => {
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return;
   if (event.key.toLowerCase() === 'f') fullscreen();
   if (event.key === 'Escape' && document.fullscreenElement) document.exitFullscreen?.();
   // Spectators have no step controls, even via presenter keyboard shortcuts.
@@ -204,7 +220,7 @@ window.addEventListener('pointermove', activity, { passive: true });
 window.addEventListener('pointerdown', activity, { passive: true });
 window.addEventListener('offline', () => {
   source?.close();
-  status('连接中断 · 正在重连', true);
+  status('连接中断 · 保留画面，正在重连', true);
 });
 window.addEventListener('online', () => { if (!terminal) { if (view) connect(); else boot(); } });
 document.addEventListener('visibilitychange', () => {

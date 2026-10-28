@@ -125,7 +125,7 @@ test('opening scroll is bounded at 650ms even for a 1200-team board; row animati
   assert.equal(fast.animationSpeed, 1);
 });
 
-test('published audience selection never follows rehearsal games and expires with its session', () => {
+test('published audience selection stays recoverable while old and rehearsal sessions expire', () => {
   let now = 0;
   const store = new SessionStore({ ttl: 100, now: () => now });
   const game = buildGame(contest(), {});
@@ -133,5 +133,6 @@ test('published audience selection never follows rehearsal games and expires wit
   const live = store.create(game); store.publish(live);
   store.create(game); assert.equal(store.current().id, live.id);
   const next = store.create(game); store.publish(next); assert.equal(store.current().id, next.id);
-  now = 101; assert.equal(store.current(), undefined); assert.equal(store.activeGameId, null);
+  now = 101; assert.equal(store.current().id, next.id); assert.equal(store.get(live.id), undefined);
+  assert.equal(store.games.size, 1);
 });

@@ -99,6 +99,11 @@ test('presenter authorization, persisted progress and live read-only spectator e
   const conflict = await fetch(`${base}/api/game/${id}/playback`, { method: 'PUT', headers, body: JSON.stringify({ index: target, revision: 0 }) });
   assert.equal(conflict.status, 409);
   assert.equal((await fetch(`${base}/api/watch/nonexistent`)).status, 404);
+  const probe = await fetch(`${base}/api/watch/${id}`, { method: 'HEAD' });
+  assert.equal(probe.status, 204);
+  assert.equal(await probe.text(), '');
+  assert.equal(probe.headers.get('cache-control'), 'no-store');
+  assert.equal((await fetch(`${base}/api/watch/nonexistent`, { method: 'HEAD' })).status, 404);
 });
 
 test('podium and selected-problem awards agree between the preview API, saved options, games and viewer steps', async (t) => {
@@ -207,6 +212,19 @@ test('/view is a public stable entrance and rehearsals cannot replace a publishe
   assert.deepEqual(await current.json(), { id: live.id, name: 'Live entrance' });
   assert.equal((await fetch(base + '/api/configs')).status, 401);
   assert.equal((await fetch(base + `/api/game/${live.id}`)).status, 403);
+  assert.equal((await fetch(base + '/api/live')).status, 401);
+  assert.equal((await fetch(base + '/api/live/resume', { method: 'POST' })).status, 401);
+  const headers = { 'X-Resolver-Admin': 'public-view-test' };
+  const liveInfo = await (await fetch(base + '/api/live', { headers })).json();
+  assert.equal(liveInfo.session.id, live.id);
+  assert.equal('controlToken' in liveInfo.session, false);
+  const recovered = await (await fetch(base + '/api/live/resume', { method: 'POST', headers })).json();
+  assert.equal(recovered.id, live.id); assert.equal(recovered.controlToken, live.controlToken);
+  assert.equal((await fetch(base + '/api/live/resume', { method: 'POST', headers: { ...headers, Origin: 'https://attacker.test' } })).status, 403);
+  const viewer = await (await fetch(base + `/api/watch/${live.id}`)).json();
+  assert.equal('controlToken' in viewer, false);
+  assert.equal('controlToken' in viewer.game, false);
+
 });
 
 test('anonymous local game floods cannot displace a current presenter', async (t) => {

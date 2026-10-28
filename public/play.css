@@ -704,3 +704,18 @@ body.spectator.disconnected .hud { opacity: 1; transform: none; }
   .hud-title { max-width: 40vw; font-size: 12px; }
   #connection-status { font-size: 10px; }
 }
+
+/* Per-device LED region and calibration; chrome stays outside the capture area. */
+#calibration { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.display-dialog { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid var(--line); border-radius: 16px; padding: 24px; color: var(--text); background: #151a23; }
+.display-dialog::backdrop { background: #0009; }
+.display-dialog label { display: grid; gap: 8px; font-size: 13px; color: var(--muted); margin: 18px 0; }
+.display-dialog select, .display-dialog input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: #080c13; font: inherit; }
+.display-dialog fieldset { border: 1px solid var(--line); border-radius: 8px; }
+.display-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+body.display-open { cursor: auto !important; }
+body.display-open #controls-wrap { opacity: 0; pointer-events: none; }
+body.display-open .hud { opacity: 0; pointer-events: none; }
+body.disconnected .hud { opacity: 1 !important; transform: none; }
+body.disconnected #hud-connection { color: #f6bb55; }
+@media (max-width: 480px) { .display-dialog { padding: 18px; } .controls { flex-wrap: wrap; justify-content: center; } }

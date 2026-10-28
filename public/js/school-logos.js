@@ -44,6 +44,7 @@ export function applySchoolLogos(contest) {
   });
   const byId = new Map(organizations.map((org) => [String(org.id), org]));
   const teams = (contest.teams || []).map((team) => {
+    if (team.logoOverride && team.logo) return { ...team };
     if (team.logo && team.logo !== DEFAULT_SCHOOL_LOGO &&
         (!['hydro', 'default', 'organization'].includes(team.logoSource) || team.logoOverride)) return { ...team };
     const org = byId.get(String(team.organizationId));

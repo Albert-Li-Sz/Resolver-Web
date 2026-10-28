@@ -76,6 +76,20 @@ test('live SSE uses incremental steps for next and full snapshots for rewind', (
   assert.match(messages[1], /^event: snapshot/);
 });
 
+test('jump and rewind build one shared spectator snapshot per revision', () => {
+  const store = new SessionStore();
+  const entry = store.create(game);
+  let snapshots = 0;
+  const snapshot = store.snapshot.bind(store);
+  store.snapshot = (...args) => { snapshots++; return snapshot(...args); };
+  store.move(entry, entry.actions[3], 0);
+  assert.equal(snapshots, 1);
+  store.snapshotMessage(entry);
+  assert.equal(snapshots, 1, 'reconnecting clients reuse the serialized snapshot');
+  store.move(entry, entry.actions[0], 1);
+  assert.equal(snapshots, 2);
+});
+
 test('expiry is checked on reads; reads keep live sessions alive and capacity stays bounded', () => {
   let now = 0;
   const store = new SessionStore({ ttl: 100, maxGames: 2, now: () => now });

@@ -4,8 +4,8 @@ import { DEFAULT_SCHOOL_LOGO, teamLogoUrl } from '../logos.js';
  * Canvas renderer for the ICPC Tools Resolver, ported from
  * reference/icpctools/PresContest scoreboard presentations.
  *
- * Logical resolution is always 1920x1080. The canvas backing store is set to
- * that size; CSS is responsible for letterboxing it into the page.
+ * Default resolution is 1920x1080. Device-local LED calibration can widen
+ * the layout while keeping square pixels and the same row heights.
  *
  * Public API (see docs/CONTRACT.md):
  *   const view = new ResolverView(canvas, game);
@@ -183,8 +183,10 @@ export class ResolverView {
       showAwards: false,
       ...(game?.options || {}),
     };
-    this.canvas.width = WIDTH;
-    this.canvas.height = HEIGHT;
+    this.width = WIDTH;
+    this.height = HEIGHT;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this._images = new Map();
     this._fontReady = initFonts();
@@ -222,12 +224,23 @@ export class ResolverView {
     this._onWindowResize = () => this.resize();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this._onWindowResize, { passive: true });
+      window.addEventListener('resolver-display', this._onWindowResize);
     }
   }
 
   /** Resolves when the Helvetica TTF (or fallback) is ready. */
   ready() {
     return this._fontReady;
+  }
+
+  dispose() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this._onWindowResize);
+      window.removeEventListener('resolver-display', this._onWindowResize);
+    }
+    for (const { img } of this._images.values()) img.onload = img.onerror = null;
+    this._images.clear();
+    this._checkpoints.clear();
   }
 
   // ---------------------------------------------------------------- layout
@@ -237,7 +250,7 @@ export class ResolverView {
     const title = this.options.title ? String(this.options.title).trim() : '';
     const titleHeight = title ? 38 : 0;
     const contentTop = HEADER_HEIGHT + titleHeight;
-    const rowHeight = (HEIGHT - contentTop) / rows;
+    const rowHeight = (this.height - contentTop) / rows;
     const scale = rowHeight / REF_ROW_HEIGHT;
     const problemCount = Math.max(1, this.problems.length || 13);
 
@@ -246,10 +259,10 @@ export class ResolverView {
     const indent = Math.round(REF_INDENT * scale);
     const rightMargin = Math.round(107 * scale);
     const maxCubeW = Math.floor(
-      (WIDTH - indent - rightMargin - cubeGap * (problemCount - 1)) / problemCount,
+      (this.width - indent - rightMargin - cubeGap * (problemCount - 1)) / problemCount,
     );
     const cubeW = Math.max(26, Math.min(Math.round(REF_CUBE_W * scale), maxCubeW));
-    const solvedCenter = WIDTH - Math.round((WIDTH - SOLVED_CENTER) * scale);
+    const solvedCenter = this.width - Math.round((WIDTH - SOLVED_CENTER) * scale);
     // Leave room for the solved count (and a small gap) so long team names
     // cannot run into the right-hand columns.
     const solvedWidth = Math.round(textWidth(this.ctx, '99', rowFont, { bold: true }));
@@ -281,27 +294,28 @@ export class ResolverView {
       nameBaseline: Math.round(36 * scale),
       rankCenter: Math.round(RANK_CENTER * scale),
       solvedCenter,
-      timeCenter: WIDTH - Math.round((WIDTH - TIME_CENTER) * scale),
+      timeCenter: this.width - Math.round((WIDTH - TIME_CENTER) * scale),
       headerRankCenter: HEADER_RANK_CENTER,
-      headerSolvedCenter: HEADER_SOLVED_CENTER,
-      headerTimeCenter: HEADER_TIME_CENTER,
+      headerSolvedCenter: this.width - (WIDTH - HEADER_SOLVED_CENTER),
+      headerTimeCenter: this.width - (WIDTH - HEADER_TIME_CENTER),
       nameMaxWidth,
     };
   }
 
   resize() {
-    if (this.canvas.width !== WIDTH || this.canvas.height !== HEIGHT) {
-      this.canvas.width = WIDTH;
-      this.canvas.height = HEIGHT;
+    this.width = clamp(Number(this.canvas.dataset?.logicalWidth) || WIDTH, 1440, 5760);
+    if (this.canvas.width !== this.width || this.canvas.height !== this.height) {
+      this.canvas.width = this.width;
+      this.canvas.height = this.height;
     }
     // Optional letterboxed fit if the host asks for it: data-fit="container".
     if (this.canvas.dataset && this.canvas.dataset.fit === 'container') {
       const parent = this.canvas.parentElement;
       const rect = parent ? parent.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
-      const scale = Math.min((rect.width || 0) / WIDTH, (rect.height || 0) / HEIGHT);
+      const scale = Math.min((rect.width || 0) / this.width, (rect.height || 0) / this.height);
       if (scale > 0) {
-        this.canvas.style.width = `${Math.floor(WIDTH * scale)}px`;
-        this.canvas.style.height = `${Math.floor(HEIGHT * scale)}px`;
+        this.canvas.style.width = `${Math.floor(this.width * scale)}px`;
+        this.canvas.style.height = `${Math.floor(this.height * scale)}px`;
       }
     }
     this._computeLayout();
@@ -313,7 +327,9 @@ export class ResolverView {
     const urls = [DEFAULT_SCHOOL_LOGO, '/assets/img/id.png', '/assets/img/tools-logo.png', this.contest.logo];
     for (const org of this.organizations) urls.push(org.logo);
     for (const team of this.teams) {
-      urls.push(team.logo, team.photo);
+      // Photos are only needed on that team's award page. Loading the entire
+      // photo collection here can dominate startup memory and network traffic.
+      urls.push(team.logo);
     }
     for (const url of urls) this._image(url);
   }
@@ -728,7 +744,7 @@ export class ResolverView {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, this.width, this.height);
     if (!this.game || !fontsReady()) return;
 
     const fade =
@@ -762,20 +778,20 @@ export class ResolverView {
     const L = this.layout;
     if (L.title) {
       ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, WIDTH, L.titleHeight);
-      drawText(ctx, L.title, WIDTH / 2, L.titleHeight * 0.76, {
+      ctx.fillRect(0, 0, this.width, L.titleHeight);
+      drawText(ctx, L.title, this.width / 2, L.titleHeight * 0.76, {
         size: Math.min(30, L.titleHeight * 0.72),
         bold: true,
         color: '#ffffff',
         align: 'center',
-        maxWidth: WIDTH - 80,
+        maxWidth: this.width - 80,
       });
     }
     this._drawHeader(ctx, L.headerTop);
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, L.contentTop, WIDTH, HEIGHT - L.contentTop);
+    ctx.rect(0, L.contentTop, this.width, this.height - L.contentTop);
     ctx.clip();
 
     const scroll = this._getScroll();
@@ -784,11 +800,11 @@ export class ResolverView {
     // and continues into one extra row (the stats row).
     for (let i = 0; i < this._order.length + 1; i += 1) {
       const y = L.contentTop + i * L.rowHeight - scroll;
-      if (y + L.rowHeight <= L.contentTop || y >= HEIGHT) continue;
+      if (y + L.rowHeight <= L.contentTop || y >= this.height) continue;
       const bg = this._backgroundForRow(i);
       if (bg) {
         ctx.fillStyle = bg;
-        ctx.fillRect(0, Math.trunc(y), WIDTH, Math.trunc(L.rowHeight));
+        ctx.fillRect(0, Math.trunc(y), this.width, Math.trunc(L.rowHeight));
       }
     }
 
@@ -799,7 +815,7 @@ export class ResolverView {
       const anim = this._teamY.get(teamId);
       if (!anim) continue;
       const y = L.contentTop + anim.getValue() * L.rowHeight - scroll;
-      if (y + L.rowHeight <= L.contentTop || y >= HEIGHT) continue;
+      if (y + L.rowHeight <= L.contentTop || y >= this.height) continue;
       ctx.save();
       ctx.translate(0, Math.trunc(y));
       this._drawTeamRow(ctx, teamId, i);
@@ -819,8 +835,8 @@ export class ResolverView {
     ];
     const width = 250;
     const height = 132;
-    const x = WIDTH - width - 22;
-    const y = HEIGHT - height - 24;
+    const x = this.width - width - 22;
+    const y = this.height - height - 24;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.62)';
     fillRoundedRect(ctx, x, y, width, height, 10, 'rgba(0,0,0,0.62)');
@@ -865,9 +881,9 @@ export class ResolverView {
   _drawHeader(ctx, top = 0) {
     const L = this.layout;
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, top, WIDTH, HEADER_HEIGHT + 2);
+    ctx.fillRect(0, top, this.width, HEADER_HEIGHT + 2);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(0, top + HEADER_HEIGHT - 1, WIDTH, 1);
+    ctx.fillRect(0, top + HEADER_HEIGHT - 1, this.width, 1);
     drawText(ctx, 'Rank', L.headerRankCenter, top + HEADER_BASELINE, {
       size: L.headerFont,
       bold: true,
@@ -903,14 +919,14 @@ export class ResolverView {
         fill = ICPCColors.COLOR_TEAM_LIST;
       }
       ctx.fillStyle = fill;
-      ctx.fillRect(0, 0, WIDTH, Math.round(L.rowHeight + 0.9));
+      ctx.fillRect(0, 0, this.width, Math.round(L.rowHeight + 0.9));
       if (this._selectType === 'HIGHLIGHT' || this._selectType === 'FTS_HIGHLIGHT') {
         const bottom = Math.floor(L.rowHeight);
         ctx.fillStyle = '#fff';
-        ctx.fillRect(-1, 0, WIDTH + 2, 1);
-        ctx.fillRect(-1, bottom, WIDTH + 2, 1);
+        ctx.fillRect(-1, 0, this.width + 2, 1);
+        ctx.fillRect(-1, bottom, this.width + 2, 1);
         ctx.fillRect(-1, 0, 1, bottom + 1);
-        ctx.fillRect(WIDTH, 0, 1, bottom + 1);
+        ctx.fillRect(this.width, 0, 1, bottom + 1);
       }
     }
 
@@ -953,7 +969,7 @@ export class ResolverView {
     }
     if (standing.time > 0 || standing.timeSeconds > 0) {
       drawText(ctx, standing.timeSeconds !== undefined ? formatSeconds(standing.timeSeconds) : String(standing.time), L.timeCenter, L.rowBaseline, {
-        maxWidth: Math.max(50, WIDTH - L.timeCenter - 10) * 2,
+        maxWidth: Math.max(50, this.width - L.timeCenter - 10) * 2,
         size: L.rowFont,
         bold: true,
         align: 'center',
@@ -988,10 +1004,10 @@ export class ResolverView {
 
   _renderSplash(ctx) {
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, this.width, this.height);
 
-    const border = HEIGHT / 20; // 54
-    const inch = (HEIGHT * 72) / 96 / 10; // 81
+    const border = this.height / 20; // 54
+    const inch = (this.height * 72) / 96 / 10; // 81
     const titleSize = inch * 1.25;
     const attrSize = inch * 0.3;
     const smallSize = inch * 0.225;
@@ -1000,10 +1016,10 @@ export class ResolverView {
     const smallLineH = smallSize * 1.2;
 
     const contestName = this.contest.name || 'ICPC Resolver';
-    const lines = splitText(ctx, contestName, titleSize, true, WIDTH - border * 2);
+    const lines = splitText(ctx, contestName, titleSize, true, this.width - border * 2);
     let h = border;
     for (const line of lines) {
-      drawText(ctx, line, WIDTH / 2, h + titleSize * 0.77, {
+      drawText(ctx, line, this.width / 2, h + titleSize * 0.77, {
         size: titleSize,
         bold: true,
         align: 'center',
@@ -1016,7 +1032,7 @@ export class ResolverView {
         ? Number(this.game.meta.pendingCount)
         : this._countPending();
     const pendingText = SPLASH_TEXT.pending.replace('{0}', String(pendingCount));
-    drawText(ctx, pendingText, WIDTH / 2, h + smallSize * 0.95, {
+    drawText(ctx, pendingText, this.width / 2, h + smallSize * 0.95, {
       size: smallSize,
       bold: true,
       align: 'center',
@@ -1024,7 +1040,7 @@ export class ResolverView {
     const tt = h + smallLineH;
 
     const gap = attrLineH / 3;
-    const hAttr = HEIGHT - border - attrLineH * 5.5 - gap * 2;
+    const hAttr = this.height - border - attrLineH * 5.5 - gap * 2;
 
     // Contest logo / ICPC id.
     const img = this._contestLogo();
@@ -1032,7 +1048,7 @@ export class ResolverView {
       const top = tt + 10;
       const bottom = hAttr - attrSize - gap * 2;
       const boxH = Math.max(120, bottom - top);
-      drawImageContain(ctx, img, (WIDTH - WIDTH * 0.8) / 2, top, WIDTH * 0.8, boxH);
+      drawImageContain(ctx, img, (this.width - this.width * 0.8) / 2, top, this.width * 0.8, boxH);
     }
 
     // "ICPC Resolver" yellow pill.
@@ -1040,14 +1056,14 @@ export class ResolverView {
     const titleW = textWidth(ctx, title, smallSize, { bold: true }) + gap * 2;
     fillRoundedRect(
       ctx,
-      (WIDTH - titleW) / 2,
+      (this.width - titleW) / 2,
       hAttr - smallSize * 0.78 - gap,
       titleW,
       smallSize * 0.78 + gap * 2,
       7,
       ICPCColors.SPLASH_PILL,
     );
-    drawText(ctx, title, WIDTH / 2, hAttr, {
+    drawText(ctx, title, this.width / 2, hAttr, {
       size: smallSize,
       bold: true,
       align: 'center',
@@ -1057,14 +1073,14 @@ export class ResolverView {
     const tools = this._toolsLogo();
     let tw = 0;
     if (tools) {
-      const boxW = WIDTH * 0.11;
-      const boxH = HEIGHT * 0.11;
+      const boxW = this.width * 0.11;
+      const boxH = this.height * 0.11;
       const { w, h: ih } = fitInside(tools, boxW, boxH);
       tw = w / 2;
-      ctx.drawImage(tools, (WIDTH - w) / 2, HEIGHT - border - ih, w, ih);
+      ctx.drawImage(tools, (this.width - w) / 2, this.height - border - ih, w, ih);
     }
-    const col1 = WIDTH / 2 - tw - border;
-    const col2 = WIDTH / 2 + tw + border;
+    const col1 = this.width / 2 - tw - border;
+    const col2 = this.width / 2 + tw + border;
 
     const smallGap = smallLineH / 3;
     const conceptByW = textWidth(ctx, SPLASH_TEXT.conceptBy, smallSize, { bold: true }) + smallGap * 2;
@@ -1128,7 +1144,7 @@ export class ResolverView {
       align: 'right',
     });
 
-    drawText(ctx, 'ICPC Tools 2.5', WIDTH - border, HEIGHT - border, {
+    drawText(ctx, 'ICPC Tools 2.5', this.width - border, this.height - border, {
       size: smallSize,
       bold: true,
       color: '#555555',
@@ -1150,7 +1166,7 @@ export class ResolverView {
 
   _renderTeamAward(ctx) {
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, this.width, this.height);
 
     const teamId = this._awardTeamId || this._selectedTeamIds[0] || this._order[0];
     if (!teamId) return;
@@ -1160,17 +1176,17 @@ export class ResolverView {
     // Java falls back to the contest logo when the team has no photo.
     const photo = this._image(team.photo) || this._contestLogo();
     if (photo) {
-      drawImageContain(ctx, photo, 0, 0, WIDTH, HEIGHT * 0.7);
+      drawImageContain(ctx, photo, 0, 0, this.width, this.height * 0.7);
     }
 
     const awards = this._awardsForTeam(teamId);
-    const inch = (HEIGHT * 72) / 96 / 10;
+    const inch = (this.height * 72) / 96 / 10;
     const teamFont = inch * 0.9;
     const groupFont = inch * 0.7;
-    const logoSize = HEIGHT / 5;
+    const logoSize = this.height / 5;
     const orgLogo = this._orgLogo(team);
     const x = BORDER + 20 + (orgLogo ? logoSize + 20 : 0);
-    const maxWidth = WIDTH - x - 40;
+    const maxWidth = this.width - x - 40;
 
     const nameLines = splitText(ctx, teamDisplayName(team), teamFont, true, maxWidth);
     const citationLines = [];
@@ -1195,11 +1211,11 @@ export class ResolverView {
     let panelH = 24 * 2 + nameLines.length * nameLineH;
     for (const c of citationLines) panelH += c.size * 1.06;
     panelH = Math.max(panelH, logoSize + 24);
-    panelH = Math.min(panelH, HEIGHT - 40);
-    const panelTop = HEIGHT - panelH - 112;
+    panelH = Math.min(panelH, this.height - 40);
+    const panelTop = this.height - panelH - 112;
 
     ctx.fillStyle = 'rgba(0,0,0,0.77)';
-    ctx.fillRect(0, panelTop, WIDTH, HEIGHT - panelTop);
+    ctx.fillRect(0, panelTop, this.width, this.height - panelTop);
     if (orgLogo) {
       const { w, h: ih } = fitInside(orgLogo, logoSize, logoSize);
       ctx.drawImage(orgLogo, BORDER + 20 + (logoSize - w) / 2, panelTop + 18 + (logoSize - ih) / 2, w, ih);
@@ -1221,18 +1237,18 @@ export class ResolverView {
 
   _renderTeamList(ctx) {
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, this.width, this.height);
 
     const state = this._teamListState || this._buildTeamListState();
-    const titleFont = HEIGHT * 0.075;
-    const teamFont = HEIGHT * 0.0465;
-    const rowHeight = (HEIGHT - 40) / TEAM_LIST_ROWS;
+    const titleFont = this.height * 0.075;
+    const teamFont = this.height * 0.0465;
+    const rowHeight = (this.height - 40) / TEAM_LIST_ROWS;
     const logoBox = rowHeight;
 
-    const titleLines = splitText(ctx, state.citation, titleFont, true, WIDTH - 80);
+    const titleLines = splitText(ctx, state.citation, titleFont, true, this.width - 80);
     let titleY = titleFont * 0.82;
     for (const line of titleLines.slice(0, 2)) {
-      drawText(ctx, line, WIDTH / 2, titleY, {
+      drawText(ctx, line, this.width / 2, titleY, {
         size: titleFont,
         bold: true,
         align: 'center',
@@ -1241,27 +1257,27 @@ export class ResolverView {
     }
     const headerH = Math.max(titleY + 8, 96);
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, headerH - 1, WIDTH, 1);
+    ctx.fillRect(0, headerH - 1, this.width, 1);
 
     const spacing = rowHeight * TEAM_LIST_SPACING;
     const scroll = this._teamListScroll.getValue() * spacing;
     const listTop = headerH + 20;
-    const visibleRows = Math.floor((HEIGHT - listTop - 20) / spacing);
+    const visibleRows = Math.floor((this.height - listTop - 20) / spacing);
     const teams = state.teams;
     const anySelected = new Set(this._selectedTeamIds);
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, headerH, WIDTH, HEIGHT - headerH);
+    ctx.rect(0, headerH, this.width, this.height - headerH);
     ctx.clip();
     for (let i = 0; i < teams.length; i += 1) {
       const y = listTop + i * spacing - scroll;
-      if (y + spacing < headerH || y > HEIGHT) continue;
+      if (y + spacing < headerH || y > this.height) continue;
       const team = teams[i];
       const selected = anySelected.has(team.id);
       if (selected) {
         ctx.fillStyle = ICPCColors.SELECTION_COLOR;
-        ctx.fillRect(0, y, WIDTH, spacing - 4);
+        ctx.fillRect(0, y, this.width, spacing - 4);
       }
       const org = this._orgLogo(team);
       if (org) {
@@ -1272,26 +1288,26 @@ export class ResolverView {
         size: teamFont,
         bold: false,
         color: selected ? '#ffffff' : '#f2f2f2',
-        maxWidth: WIDTH - 200,
+        maxWidth: this.width - 200,
       });
     }
 
     // Fade the bottom rows out.
-    const fade = ctx.createLinearGradient(0, HEIGHT - 90, 0, HEIGHT);
+    const fade = ctx.createLinearGradient(0, this.height - 90, 0, this.height);
     fade.addColorStop(0, 'rgba(0,0,0,0)');
     fade.addColorStop(1, 'rgba(0,0,0,1)');
     ctx.fillStyle = fade;
-    ctx.fillRect(0, HEIGHT - 90, WIDTH, 90);
+    ctx.fillRect(0, this.height - 90, this.width, 90);
     ctx.restore();
 
     // Scroll hint / progress line.
     if (teams.length > visibleRows) {
       const progress = clamp(this._teamListScroll.getValue() / Math.max(1, teams.length - visibleRows), 0, 1);
-      const trackX = WIDTH - 40;
+      const trackX = this.width - 40;
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.fillRect(trackX, headerH + 20, 4, HEIGHT - headerH - 60);
+      ctx.fillRect(trackX, headerH + 20, 4, this.height - headerH - 60);
       ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillRect(trackX, headerH + 20 + progress * (HEIGHT - headerH - 100), 4, 60);
+      ctx.fillRect(trackX, headerH + 20 + progress * (this.height - headerH - 100), 4, 60);
     }
   }
 
@@ -1306,20 +1322,20 @@ export class ResolverView {
     const remaining = this._message.until - this.nowMs;
     const alpha = clamp(Math.min(1, (7000 - remaining) / 250, remaining / 400), 0, 1);
     const size = 56;
-    const lines = splitText(ctx, this._message.text, size, true, WIDTH - 240);
+    const lines = splitText(ctx, this._message.text, size, true, this.width - 240);
     const lineH = size * 1.2;
     const boxH = lines.length * lineH + 48;
     const boxW = Math.min(
-      WIDTH - 160,
+      this.width - 160,
       Math.max(...lines.map((l) => textWidth(ctx, l, size, { bold: true })), 300) + 80,
     );
     ctx.save();
     ctx.globalAlpha *= alpha;
     ctx.fillStyle = 'rgba(0,0,0,0.82)';
-    fillRoundedRect(ctx, (WIDTH - boxW) / 2, (HEIGHT - boxH) / 2, boxW, boxH, 14, 'rgba(0,0,0,0.82)');
-    let y = (HEIGHT - boxH) / 2 + 24 + size * 0.82;
+    fillRoundedRect(ctx, (this.width - boxW) / 2, (this.height - boxH) / 2, boxW, boxH, 14, 'rgba(0,0,0,0.82)');
+    let y = (this.height - boxH) / 2 + 24 + size * 0.82;
     for (const line of lines) {
-      drawText(ctx, line, WIDTH / 2, y, { size, bold: true, align: 'center' });
+      drawText(ctx, line, this.width / 2, y, { size, bold: true, align: 'center' });
       y += lineH;
     }
     ctx.restore();

@@ -9,6 +9,7 @@ services:
       HOST: 0.0.0.0
       PORT: 4173
       RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请在 .env 中设置管理员密钥}
+      RESOLVER_MEDIA_ORIGINS: ${RESOLVER_MEDIA_ORIGINS:-}
       RESOLVER_FEED_ORIGINS: ${RESOLVER_FEED_ORIGINS:-}
       RESOLVER_DATA_DIR: /app/data
     volumes:

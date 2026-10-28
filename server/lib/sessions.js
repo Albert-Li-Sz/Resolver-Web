@@ -2,6 +2,18 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { actionIndicesFor, startIndexFor } from '../../public/js/playback-model.js';
 import { LIMITS, inputError, jsonBytes } from './limits.js';
 
+function spectatorSteps(steps) {
+  return steps.map((step) => {
+    if (!step.teamId || !Array.isArray(step.awards)) return step;
+    // A detail page reveals this team only. A shared medal/FTS award can also
+    // contain recipients whose rows have not been resolved yet. List pages
+    // have no teamId and are emitted only after every recipient is revealed.
+    return { ...step, awards: step.awards.map((award) => ({ ...award,
+      teamIds: award.teamIds.filter((id) => id === step.teamId),
+    })) };
+  });
+}
+
 export class SessionStore {
   constructor({ ttl = 6 * 60 * 60 * 1000, maxGames = 80, activeGrace = 120_000,
     maxBytes = LIMITS.sessionBytes, maxClients = 500, maxClientsPerGame = 100, now = Date.now } = {}) {
@@ -33,14 +45,16 @@ export class SessionStore {
   prune() {
     const now = this.now();
     for (const [id, entry] of this.games) {
-      if (now - entry.touchedAt >= this.ttl) this.remove(id);
+      if (id !== this.activeGameId && now - entry.touchedAt >= this.ttl) this.remove(id);
     }
   }
 
   create(game) {
     this.prune();
-    const bytes = jsonBytes(game, LIMITS.gameBytes, '滚榜会话');
-    const victims = [...this.games.values()].filter((entry) => !entry.clients.size && this.now() - entry.touchedAt >= this.activeGrace)
+    const id = randomUUID().replaceAll('-', '');
+    const storedGame = { ...game, id };
+    const bytes = jsonBytes(storedGame, LIMITS.gameBytes, '滚榜会话');
+    const victims = [...this.games.values()].filter((entry) => entry.id !== this.activeGameId && !entry.clients.size && this.now() - entry.touchedAt >= this.activeGrace)
       .sort((a, b) => a.touchedAt - b.touchedAt);
     let count = this.games.size;
     let total = this.bytes;
@@ -51,9 +65,8 @@ export class SessionStore {
       removed.push(victim.id); count--; total -= victim.bytes;
     }
     for (const id of removed) this.remove(id);
-    const id = randomUUID().replaceAll('-', '');
     const entry = {
-      id, game: { ...game, id }, controlToken: randomBytes(32).toString('hex'),
+      id, game: storedGame, controlToken: randomBytes(32).toString('hex'),
       touchedAt: this.now(), index: startIndexFor(game), revision: 0,
       actions: actionIndicesFor(game.steps), clients: new Set(),
       bytes, snapshotRevision: -1, snapshotMessage: null,
@@ -92,7 +105,7 @@ export class SessionStore {
       game: {
         ...entry.game,
         contest: { ...entry.game.contest, awards: [] },
-        steps: entry.game.steps.slice(0, entry.index + 1),
+        steps: spectatorSteps(entry.game.steps.slice(0, entry.index + 1)),
       },
       playback: this.playback(entry),
     };
@@ -161,25 +174,30 @@ export class SessionStore {
     }
   }
 
-  move(entry, index, revision) {
+  validateMove(entry, index, revision) {
+    if (this.games.get(entry.id) !== entry) return { status: 404, error: '滚榜会话不存在或已过期' };
     if (!Number.isInteger(index) || !entry.actions.includes(index)) {
       return { status: 400, error: '无效的滚榜步骤' };
     }
     if (revision !== entry.revision) {
       return { status: 409, error: '主持进度已更新，请重试', playback: this.playback(entry) };
     }
+    return null;
+  }
+
+  move(entry, index, revision) {
+    const invalid = this.validateMove(entry, index, revision);
+    if (invalid) return invalid;
     if (index === entry.index) return { playback: this.playback(entry) };
     const previous = entry.index;
     const sequential = entry.actions.indexOf(index) === entry.actions.indexOf(previous) + 1;
     entry.index = index;
     entry.revision += 1;
     entry.touchedAt = this.now();
-    const event = sequential ? 'advance' : 'snapshot';
-    const payload = sequential ? {
+    const message = sequential ? `event: advance\ndata: ${JSON.stringify({
       playback: this.playback(entry),
-      steps: entry.game.steps.slice(previous + 1, index + 1),
-    } : this.snapshot(entry);
-    const message = event === 'snapshot' ? this.snapshotMessage(entry) : `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+      steps: spectatorSteps(entry.game.steps.slice(previous + 1, index + 1)),
+    })}\n\n` : this.snapshotMessage(entry);
     for (const client of entry.clients) {
       this.send(client, message);
     }

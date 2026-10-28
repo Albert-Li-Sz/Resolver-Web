@@ -6,6 +6,16 @@ import { atomicWrite, cleanupTemps, DATA_DIR } from './files.js';
 export const ASSET_DIR = path.join(DATA_DIR, 'images');
 const bad = (message) => Object.assign(new Error(message), { status: 400, expose: true });
 
+// Remote catalogs sometimes label PNG bytes as WebP. Detect only supported
+// raster signatures; size/dimension checks still run in saveImage.
+export function rasterMime(buffer) {
+  if (!Buffer.isBuffer(buffer)) return null;
+  if (buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
+  if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) return 'image/jpeg';
+  if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  return null;
+}
+
 function dimensions(buffer, ext) {
   if (ext === 'png' && buffer.length >= 33 && buffer.toString('ascii', 12, 16) === 'IHDR') {
     return [buffer.readUInt32BE(16), buffer.readUInt32BE(20)];
@@ -40,10 +50,7 @@ export function createAssetStore(directory = ASSET_DIR, { maxFiles = 10_000, max
     async saveImage(buffer, contentType) {
       if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > 4 * 1024 * 1024) throw bad('图片大小须在 4 MB 以内');
       const mime = String(contentType || '').split(';')[0];
-      const png = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-      const jpg = buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255;
-      const webp = buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
-      const ext = mime === 'image/png' && png ? 'png' : mime === 'image/jpeg' && jpg ? 'jpg' : mime === 'image/webp' && webp ? 'webp' : null;
+      const ext = mime === rasterMime(buffer) ? ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' })[mime] : null;
       if (!ext) throw bad('图片格式无效，请上传 PNG、JPG 或 WebP');
       const [width, height] = dimensions(buffer, ext);
       if (!width || !height || width > 8192 || height > 8192 || width * height > 16_000_000) throw bad('图片尺寸须不超过 8192 边长和 1600 万像素');

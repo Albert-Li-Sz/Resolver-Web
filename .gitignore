@@ -16,3 +16,7 @@ data/media-library.json.*.tmp
 backup/
 __pycache__/
 *.pyc
+
+data/live/
+data/remote-media.json
+data/.remote-media.json.*.tmp

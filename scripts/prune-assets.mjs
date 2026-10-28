@@ -3,7 +3,7 @@ import path from 'node:path';
 import { ASSET_DIR, createAssetStore } from '../server/lib/assets.js';
 import { getConfig, listConfigs } from '../server/lib/store.js';
 import { mediaLibrary } from '../server/lib/media-library.js';
-import { readJSONFile } from '../server/lib/files.js';
+import { DATA_DIR, readJSONFile } from '../server/lib/files.js';
 
 // Dry run by default. Stop the service and export unsaved browser state before
 // passing --delete. Extra JSON paths may contain those exported references.
@@ -14,6 +14,11 @@ function collect(value) {
 }
 for (const record of await listConfigs()) collect(await getConfig(record.id));
 collect(await mediaLibrary.list());
+try {
+  const live = await readJSONFile(path.join(DATA_DIR, 'live/current.json'), 4096);
+  if (!/^[a-f0-9]{32}$/.test(live.id)) throw new Error('直播记录损坏，停止清理');
+  collect(await readJSONFile(path.join(DATA_DIR, `live/${live.id}.json`)));
+} catch (err) { if (err.code !== 'ENOENT') throw err; }
 for (const file of process.argv.slice(2).filter((arg) => !arg.startsWith('--'))) collect(await readJSONFile(path.resolve(file)));
 const graceMs = 7 * 24 * 60 * 60 * 1000;
 let files = [];

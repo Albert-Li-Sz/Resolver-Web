@@ -29,14 +29,35 @@ field names without telling the Lead.
   presenter polls every two seconds to keep the session active and synchronize other windows.
 - `PUT /api/game/:id/playback` `{ index, revision }` → `{ playback }`. Requires the control header;
   invalid action indices return 400 and stale revisions return 409 with authoritative playback.
+- `GET /api/live` (management) → `{ session: null | { id, name, playback, savedAt } }`.
+- `POST /api/live/resume` (management) → `{ id, controlToken }`; does not move the show.
+  Only the current published game is durable. Its immutable game/capability file and
+  atomic `live/current.json` progress pointer live under `RESOLVER_DATA_DIR`.
+  Publication and moves serialize; pointer persistence finishes before in-memory
+  progress changes, SSE broadcasts or HTTP acknowledgment. Failure leaves public
+  progress unchanged. Restoration preserves IDs, revisions, awards and control token;
+  automatic advancement never resumes on reload. Previews remain memory-only.
+  The current published game is exempt from TTL/LRU; replacement releases that protection.
 - `GET /api/watch/:id` → `{ game, playback }`. Public game has no future steps or contest awards.
 - `GET /api/watch/:id/events` → SSE: initial/reconnect `snapshot`, sequential `advance`,
   rewind/jump `snapshot`, eviction `expired`. An advance contains only `{ steps, playback }`.
+  Shared awards on a detail page include only that page's team ID in spectator
+  payloads; complete list-award recipients appear only when the list is presented.
+  `HEAD /api/watch/:id` returns 204 for a live session (404 if expired), without
+  constructing a scoreboard snapshot, for lightweight reconnection probes.
   `playback` is `{ index, revision, currentAction, totalActions }` (index is a raw step index).
   Preview frames use the control token to load their game but do not publish playback changes.
 - `POST /api/awards` `{ contest, options }` → `{ awards }` for an organizer's final award preview.
 - `POST /api/assets` raw PNG/JPEG/WebP (up to 4 MB after browser resizing) → `{ url }`.
   Images persist under `data/images/`; `/media/<sha256>.<ext>` serves immutable assets.
+- `POST /api/assets/cache` (management) `{ urls: string[] }` → `{ items: [{ source, url? , error? }] }`.
+  At most 12 unique http(s) or hashed `/media/` URLs per request, four concurrent
+  downloads globally, six seconds per image, 4 MB decoded limit plus image signature
+  and dimension validation. `RESOLVER_MEDIA_ORIGINS` is a separate exact-origin
+  allowlist for LAN/proxy DNS; all redirect hops use the same SSRF protection as feeds.
+  `remote-media.json` retains up to 2000 URL mappings; cached files are checked before
+  reuse. Start-show UI prepares an isolated local-media contest copy (60s budget),
+  preserves editable sources and reports fallback counts in optional `game.mediaReport`.
 - `GET /api/media-library` → `{ items }` with persisted pre-contest media rules.
 - `POST /api/media-library` `{ kind, matchBy, key, url }` upserts a rule.
   `kind` is organization-logo / team-logo / team-photo; `matchBy` is id / name.
@@ -218,7 +239,7 @@ The renderer owns that.
 
 ```js
 export class ResolverView {
-  // canvas is 1920x1080 logical pixels (set width/height internally)
+  // canvas defaults to 1920x1080 logical pixels (device LED settings can widen it)
   constructor(canvas, game);
   applyStep(step, { instant = false } = {});
   update(dtMs);
@@ -291,3 +312,14 @@ Same-contest identity uses contestId where available, otherwise name plus startT
 Manual overrides survive a new feed of that contest and do not leak to unrelated contests.
 Generated games only need public media URLs and override booleans; source bookkeeping
 remains in the editable raw contest and saved presets.
+
+## Device-local LED output
+
+`resolver.display.v1` in localStorage stores the output region, aspect and safe margin.
+`display-settings.js` applies the capture region and supplies `canvas.dataset.logicalWidth`;
+`ResolverView` keeps logical height 1080 and adapts width between 1440 and 5760.
+Right-hand columns remain anchored to the right edge; logos/text retain square pixels.
+This never changes game options or playback. Calibration on the presenter pauses local
+fast-forward and consumes navigation keys; previews ignore these device settings.
+Transient viewer disconnects retain the canvas. Presenter transport failures lock moves
+until an authoritative poll completes, ignoring polls started before a newer mutation.
