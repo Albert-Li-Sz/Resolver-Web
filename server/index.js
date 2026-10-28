@@ -2,6 +2,7 @@ import { cacheRemoteMedia } from './lib/remote-media.js';
 import { mediaLibrary } from './lib/media-library.js';
 import { ASSET_DIR, saveImage } from './lib/assets.js';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { fetchFeedText } from './lib/remote-feed.js';
@@ -13,6 +14,7 @@ import { LIMITS } from './lib/limits.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const { version: VERSION } = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || '127.0.0.1';
 
@@ -43,7 +45,7 @@ function fail(res, status, message) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, service: 'icpc-resolver-web', version: '1.1.0', time: Date.now() });
+  res.json({ ok: true, service: 'icpc-resolver-web', version: VERSION, time: Date.now() });
 });
 
 

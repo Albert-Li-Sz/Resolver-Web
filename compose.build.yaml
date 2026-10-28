@@ -1,0 +1,5 @@
+services:
+  resolver:
+    image: resolver-web:local
+    pull_policy: build
+    build: .

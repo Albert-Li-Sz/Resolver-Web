@@ -1,5 +1,6 @@
 """Render doc/使用指南.md to a screenshot-based PDF. Requires reportlab and a CJK TTF."""
 import argparse
+import json
 import os
 import re
 from html import escape
@@ -14,6 +15,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak, KeepTogether
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = json.loads((ROOT / 'package.json').read_text())['version']
+DOC_DATE = '2026-10-28'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--font', default=os.environ.get('RESOLVER_DOC_FONT'))
 args = parser.parse_args()
@@ -49,7 +52,7 @@ def footer(canvas, doc):
     canvas.setFont('ManualCN', 8)
     canvas.setFillColor(muted)
     canvas.drawString(40, height - 23, 'Resolver Web | 图文使用指南')
-    canvas.drawString(40, 22, 'v1.1.0 · 2026-10-26 · 实测截图 / 合成练习数据')
+    canvas.drawString(40, 22, f'v{VERSION} · {DOC_DATE} · 实测截图 / 合成练习数据')
     canvas.drawRightString(width - 40, 22, str(doc.page))
     canvas.restoreState()
 
@@ -62,8 +65,8 @@ source = (ROOT / 'doc/使用指南.md').read_text()
 sections = re.split(r'^## ', source, flags=re.M)
 story = [Spacer(1, 45), Paragraph('Resolver Web', styles['title']), Paragraph('图文使用指南', styles['h2']),
          Paragraph('从导入赛事，到主持滚榜与观众同步', styles['body']), Spacer(1, 14),
-         Paragraph('版本 1.1.0 · 2026-10-26', styles['body']),
-         Paragraph('本指南适用于赛事主持人、现场转播操作员与部署管理员。界面截图来自本版本 Browser 实测；示例成绩为合成练习数据。', styles['body']), Spacer(1, 18),
+         Paragraph(f'版本 {VERSION} · {DOC_DATE}', styles['body']),
+         Paragraph('本指南适用于赛事主持人、现场转播操作员与部署管理员。界面截图来自 Browser 实测，部分展示较早版本界面；示例成绩为合成练习数据。', styles['body']), Spacer(1, 18),
          Paragraph('阅读顺序', styles['h2']),
          Paragraph('1 打开配置中心　2 导入赛事　3 准备素材　4 显示与奖项<br/>5 手动预览　6 配置预设　7 主持滚榜　8 分享观众链接　9 收尾与排错', styles['body']), Spacer(1, 16),
          Paragraph('<link href="https://github.com/Albert-Li-Sz/Resolver-Web" color="#1765c1">项目、示例下载及部署教程：github.com/Albert-Li-Sz/Resolver-Web</link>', styles['body'])]

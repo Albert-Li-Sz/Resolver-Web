@@ -13,3 +13,4 @@ tests
 examples
 *.log
 .DS_Store
+dist/

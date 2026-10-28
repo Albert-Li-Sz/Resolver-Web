@@ -12,7 +12,7 @@
 
 ### Docker Compose
 
-安装 Docker 和 Compose，然后执行：
+镜像由 GitHub Actions 构建并发布到 GHCR，支持 amd64 / arm64。安装 Docker 和 Compose，然后执行：
 
 ```bash
 git clone https://github.com/Albert-Li-Sz/Resolver-Web.git
@@ -30,7 +30,8 @@ RESOLVER_BIND_ADDRESS=0.0.0.0
 启动服务：
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 打开 `http://服务器IP:4173/`，用户名为 `admin`，密码为 `.env` 中设置的值。赛事、素材与直播进度保存在 Docker 数据卷中。

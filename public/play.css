@@ -719,3 +719,6 @@ body.display-open .hud { opacity: 0; pointer-events: none; }
 body.disconnected .hud { opacity: 1 !important; transform: none; }
 body.disconnected #hud-connection { color: #f6bb55; }
 @media (max-width: 480px) { .display-dialog { padding: 18px; } .controls { flex-wrap: wrap; justify-content: center; } }
+/* Allow LED calibration before a live contest has started. */
+body.display-open #loading,
+body.display-open #error { display: none !important; }

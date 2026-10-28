@@ -13,7 +13,8 @@ async function request(route, options = {}, expected = 200) {
 const post = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 const health = await request('/api/health');
-assert.equal(health.version, '1.1.0');
+const expectedVersion = process.env.RESOLVER_EXPECTED_VERSION || JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
+assert.equal(health.version, expectedVersion);
 if (mode === 'verify-restart') {
   const saved = JSON.parse(await readFile(stateFile, 'utf8'));
   const preset = await request(`/api/configs/${saved.presetId}`);

@@ -1,6 +1,6 @@
 {
   "name": "icpc-resolver-web",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Node.js-driven web reimplementation of the ICPC Tools Resolver with a configuration dashboard.",
   "type": "module",

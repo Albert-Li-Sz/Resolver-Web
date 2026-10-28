@@ -1,7 +1,6 @@
 services:
   resolver:
-    build: .
-    image: resolver-web:local
+    image: ghcr.io/albert-li-sz/resolver-web:${RESOLVER_IMAGE_TAG:-v1.2.0}
     restart: unless-stopped
     ports:
       - "${RESOLVER_BIND_ADDRESS:-127.0.0.1}:${RESOLVER_PORT:-4173}:4173"
