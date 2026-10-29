@@ -1,11 +1,12 @@
 import { scoreStandings, formatSeconds } from '../standings.js';
 import { DEFAULT_SCHOOL_LOGO, teamLogoUrl } from '../logos.js';
+import { DISPLAY_STORAGE_KEY, readDisplaySettings, renderDimensions } from '../display-preferences.js';
 /**
  * Canvas renderer for the ICPC Tools Resolver, ported from
  * reference/icpctools/PresContest scoreboard presentations.
  *
- * Default resolution is 1920x1080. Device-local LED calibration can widen
- * the layout while keeping square pixels and the same row heights.
+ * Layout uses 1920x1080 logical coordinates; rendering defaults to 2560x1440.
+ * Resolution and LED aspect ratio are independent of playback state.
  *
  * Public API (see docs/CONTRACT.md):
  *   const view = new ResolverView(canvas, game);
@@ -221,10 +222,15 @@ export class ResolverView {
     this._applyInitialState();
     this._setScreen(this.options.startScreen === 'scoreboard' ? 'scoreboard' : 'splash', true);
 
-    this._onWindowResize = () => this.resize();
+    this._onWindowResize = (event) => {
+      if (event?.type === 'storage' && event.key !== DISPLAY_STORAGE_KEY && event.key !== null) return;
+      this.resize();
+    };
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this._onWindowResize, { passive: true });
       window.addEventListener('resolver-display', this._onWindowResize);
+      window.addEventListener('resolver-display-preferences', this._onWindowResize);
+      window.addEventListener('storage', this._onWindowResize);
     }
   }
 
@@ -237,6 +243,8 @@ export class ResolverView {
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this._onWindowResize);
       window.removeEventListener('resolver-display', this._onWindowResize);
+      window.removeEventListener('resolver-display-preferences', this._onWindowResize);
+      window.removeEventListener('storage', this._onWindowResize);
     }
     for (const { img } of this._images.values()) img.onload = img.onerror = null;
     this._images.clear();
@@ -304,9 +312,11 @@ export class ResolverView {
 
   resize() {
     this.width = clamp(Number(this.canvas.dataset?.logicalWidth) || WIDTH, 1440, 5760);
-    if (this.canvas.width !== this.width || this.canvas.height !== this.height) {
-      this.canvas.width = this.width;
-      this.canvas.height = this.height;
+    const resolution = this.canvas.dataset?.resolution || readDisplaySettings().resolution;
+    const pixels = renderDimensions(this.width, resolution);
+    if (this.canvas.width !== pixels.width || this.canvas.height !== pixels.height) {
+      this.canvas.width = pixels.width;
+      this.canvas.height = pixels.height;
     }
     // Optional letterboxed fit if the host asks for it: data-fit="container".
     if (this.canvas.dataset && this.canvas.dataset.fit === 'container') {
@@ -741,7 +751,7 @@ export class ResolverView {
     this.finishReplay();
     if (Number.isFinite(nowMs)) this.nowMs = nowMs;
     const ctx = this.ctx;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(this.canvas.width / this.width, 0, 0, this.canvas.height / this.height, 0, 0);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, this.width, this.height);

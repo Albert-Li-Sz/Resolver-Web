@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#F3F0EE">
   <meta name="description" content="调整滚榜画面布局、开场屏与显示开关；滚榜由操作者手动推进。">
-  <title>显示与节奏 · ICPC Resolver</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231765c1'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
+  <title>画面与奖项 · ICPC Resolver</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23141413'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
   <link rel="preload" href="/assets/font/dm-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/config.css">
 </head>
@@ -46,35 +46,18 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="m19 5-7 7"/><path d="M18.5 14v4.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V7a1.5 1.5 0 0 1 1.5-1.5H10"/></symbol>
   </svg>
 
-  <aside class="sidebar" aria-label="配置导航">
-    <a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a>
-    <div class="nav-group-label">赛事配置</div>
-    <nav class="side-nav" aria-label="配置页面"><a class="side-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>数据源</span></a>
-<a class="side-link" href="/logos.html"><svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg><span>Logo 与照片</span></a>
-<a class="side-link is-active" href="/display.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg><span>显示与节奏</span></a>
-<a class="side-link" href="/preview.html"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg><span>实时预览</span></a>
-<a class="side-link" href="/presets.html"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg><span>配置预设</span></a></nav>
-    <div class="sidebar-bottom"><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/tree/main/examples" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg><span>示例榜单</span></a><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/blob/main/doc/使用指南.pdf" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>使用文档</span></a><p>Resolver Web · v1.2</p></div>
-  </aside>
-  <header class="topbar"><div class="topbar-inner"><div class="mobile-brand"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a></div><span class="topbar-title">滚榜配置中心</span><div class="topbar-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></div></header>
-  <nav class="mobile-nav" aria-label="配置页面"><a href="/">数据源</a>
-<a href="/logos.html">Logo 与照片</a>
-<a href="/display.html" class="is-active" aria-current="page">显示与节奏</a>
-<a href="/preview.html">实时预览</a>
-<a href="/presets.html">配置预设</a></nav>
+  <header class="app-header"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a><nav class="desktop-nav" aria-label="配置页面"><a href="/">赛事导入</a><a href="/logos.html">校徽与照片</a><a href="/display.html" class="is-active" aria-current="page">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav><div class="header-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-label="检查服务连接" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></header><nav class="mobile-nav" aria-label="配置页面"><a href="/">赛事导入</a><a href="/logos.html">校徽与照片</a><a href="/display.html" class="is-active" aria-current="page">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav>
 
   <main class="page" id="main">
     <section class="page-head">
-      <h1>显示与节奏</h1>
-      <p class="page-sub">调整画面布局、开场屏与奖项规则。</p>
-      <p class="page-contest" id="pageContest">当前赛事：—</p>
+      <h1>画面与奖项</h1>
+      <p class="page-contest" id="pageContest">尚未导入赛事</p>
     </section>
-<ol class="workflow" aria-label="滚榜准备流程"><li><a href="/"><span class="step-number">1</span><span>导入赛事</span></a></li><li class="is-current" aria-current="step"><a href="/logos.html"><span class="step-number">2</span><span>完善配置</span></a></li><li><a href="/preview.html"><span class="step-number">3</span><span>预览与滚榜</span></a></li></ol>
 <div class="offline-banner" id="offlineBanner" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
       <div class="offline-banner-text">
         <strong>服务暂未连接</strong>
-        <span>请检查服务是否启动，再点击重试。当前赛事与配置会保留。</span>
+        <span>请检查服务后重试，当前配置已保留。</span>
       </div>
       <button type="button" class="btn btn-sm btn-ghost" id="retryConnBtn">
         <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
@@ -82,13 +65,22 @@
       </button>
     </div>
 
+    <nav class="settings-nav" aria-label="设置分区"><a href="#section-output">分辨率</a><a href="#section-display">画面</a><a href="#freezeSettings">封榜</a><a href="#medalSettings">金银铜</a><a href="#podiumSettings">冠亚季军</a><a href="#firstSolveSettings">最快解题</a></nav>
     <div class="page-shell">
+      <section class="card output-card" id="section-output" aria-labelledby="outputTitle">
+        <div class="card-head"><h2 id="outputTitle">渲染分辨率</h2></div>
+        <div class="field-grid field-grid-2">
+          <div class="field"><label class="field-label" for="renderResolution">本机分辨率</label><select id="renderResolution" class="input select"><option value="1080p">1080p · 1920 × 1080</option><option value="1440p" selected>2K · 2560 × 1440（推荐）</option><option value="2160p">4K · 3840 × 2160</option></select><p class="field-hint">仅影响本浏览器，观众屏可在「画面设置」中单独选择。</p></div>
+          <div class="field"><p class="field-label">当前输出</p><p id="renderResolutionInfo" class="output-value" role="status">2560 × 1440 px</p><p class="field-hint">按 16:9 标注，实际像素随画面比例调整。</p></div>
+        </div>
+        <p id="renderResolutionError" class="inline-note is-error" role="status" hidden></p>
+      </section>
 <section class="card" id="section-display" aria-labelledby="displayCardTitle">
           <div class="card-head">
             <span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-sliders"></use></svg></span>
             <div class="card-head-text">
               <h2 id="displayCardTitle">画面参数</h2>
-              <p>开场快速到底；奖项区之前以 4 倍速掠过，到达获奖队伍后手动推进。</p>
+
             </div>
             <button type="button" class="link-btn" id="resetOptionsBtn" title="恢复默认参数">
               <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
@@ -109,13 +101,13 @@
                   </select>
                   <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
                 </div>
-                <p class="field-hint">榜单一屏显示的队伍数量，行数越多字号越小。</p>
+                <p class="field-hint">每屏队伍数；行数越多，字号越小。</p>
               </div>
 
               <div class="field">
                 <label class="field-label" for="rowOffset">行偏移 <span class="value-chip" id="rowOffsetValue">0</span></label>
                 <input type="number" id="rowOffset" class="input" min="0" max="8" step="1" value="0" inputmode="numeric">
-                <p class="field-hint">榜单整体下移的行数（0–8），用于转播画面留白或对齐。</p>
+                <p class="field-hint">向下偏移 0–8 行。</p>
               </div>
 
               <div class="field">
@@ -127,7 +119,7 @@
                   </select>
                   <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
                 </div>
-                <p class="field-hint">滚榜开始时展示 Logo 开场画面，或直接进入封榜榜单。</p>
+                <p class="field-hint"></p>
               </div>
             </div>
           </div>
@@ -160,19 +152,19 @@
           </div>
 
           <div class="setting-group">
-            <div class="group-title">还原封榜现场</div>
+            <div class="group-title" id="freezeSettings">封榜时间</div>
             <div class="field-grid field-grid-2">
-              <div class="field"><label class="field-label" for="freezeMode">封榜时间来源</label><select id="freezeMode" class="input select"><option value="feed">使用事件流的封榜记录（含历史记录）</option><option value="custom">手动还原封榜</option></select></div>
-              <div class="field"><label class="field-label" for="freezeMinutes">最后多少分钟封榜</label><input id="freezeMinutes" class="input" type="number" min="0.01" step="0.01" value="60" disabled></div>
+              <div class="field"><label class="field-label" for="freezeMode">封榜时间来源</label><select id="freezeMode" class="input select"><option value="feed">事件流封榜记录</option><option value="custom">自定义封榜时间</option></select></div>
+              <div class="field"><label class="field-label" for="freezeMinutes">最后 N 分钟封榜</label><input id="freezeMinutes" class="input" type="number" min="0.01" step="0.01" value="60" disabled></div>
             </div>
             <p id="freezeHint" class="field-hint" role="status"></p>
-            <p class="field-hint">赛后已解封的完整事件流也可使用。保留最终判题结果，按所选时间隐藏提交并逐步揭晓；需要文件包含提交时间和判题记录，最终汇总榜单无法重建过程。</p>
+            <p class="field-hint">需要完整的提交与判题记录；仅有最终名次的榜单无法重建滚榜。</p>
           </div>
 
           <div class="setting-group">
-            <div class="group-title">金银铜奖项</div>
+            <div class="group-title" id="medalSettings">金银铜奖项</div>
             <div class="field"><label class="field-label" for="medalMode">奖项来源</label>
-              <select id="medalMode" class="input select"><option value="imported">沿用事件流中的奖项</option><option value="custom">自定义金银铜奖项</option></select>
+              <select id="medalMode" class="input select"><option value="imported">使用事件流奖项</option><option value="custom">自定义名额与名称</option></select>
             </div>
             <fieldset id="medalFields" class="medal-fields" disabled>
               <div class="field-grid medal-grid">
@@ -180,14 +172,14 @@
                 <div class="field"><label class="field-label" for="silverCount">银奖名额</label><input id="silverCount" class="input" type="number" min="0" max="10000" step="1"><label class="field-label" for="silverCitation">银奖名称</label><input id="silverCitation" class="input" maxlength="80"></div>
                 <div class="field"><label class="field-label" for="bronzeCount">铜奖名额</label><input id="bronzeCount" class="input" type="number" min="0" max="10000" step="1"><label class="field-label" for="bronzeCitation">铜奖名称</label><input id="bronzeCitation" class="input" maxlength="80"></div>
               </div>
-              <label class="switch-row" for="medalSameScore"><span class="switch-text"><span>同题数、同罚时获得相同奖项</span><small>按累计名额划线；并列跨线时获得较高奖项，可能增加获奖人数。关闭后严格按榜单顺序分配。</small></span><span class="switch"><input type="checkbox" id="medalSameScore"><span class="switch-track" aria-hidden="true"></span></span></label>
-              <p class="field-hint">打星队伍不占奖项名额；名额设为 0 可关闭该等级。自定义奖牌会替换导入的金银铜奖牌，其他奖项保留。</p>
+              <label class="switch-row" for="medalSameScore"><span class="switch-text"><span>同分队伍获得相同奖项</span><small>题数与罚时相同即视为同分，跨线时取较高奖项；关闭后严格按名次分配。</small></span><span class="switch"><input type="checkbox" id="medalSameScore"><span class="switch-track" aria-hidden="true"></span></span></label>
+              <p class="field-hint">打星队伍不占名额；0 表示不颁发。自定义结果替换导入的金银铜奖项。</p>
             </fieldset>
           </div>
 
           <div class="setting-group" id="podiumSettings">
             <div class="group-title">冠军、亚军与季军</div>
-            <label class="switch-row" for="podiumEnabled"><span class="switch-text"><span>自动生成冠亚季军</span><small>按最终榜单顺序，各取一支正式队伍；打星队伍不占名额，可与金银铜同时颁发。</small></span><span class="switch"><input type="checkbox" id="podiumEnabled"><span class="switch-track" aria-hidden="true"></span></span></label>
+            <label class="switch-row" for="podiumEnabled"><span class="switch-text"><span>自动生成冠亚季军</span><small>最终排名前三的正式队伍，可同时获得金银铜奖。</small></span><span class="switch"><input type="checkbox" id="podiumEnabled"><span class="switch-track" aria-hidden="true"></span></span></label>
             <fieldset id="podiumFields" class="medal-fields" disabled>
               <legend class="visually-hidden">冠亚季军名称</legend>
               <div class="field-grid medal-grid">
@@ -195,20 +187,20 @@
                 <div class="field"><label class="field-label" for="runnerUpCitation">亚军名称</label><input id="runnerUpCitation" class="input" maxlength="80" value="亚军"></div>
                 <div class="field"><label class="field-label" for="thirdPlaceCitation">季军名称</label><input id="thirdPlaceCitation" class="input" maxlength="80" value="季军"></div>
               </div>
-              <p class="field-hint">正式队伍不足三支时，按实际数量颁发。生成的冠亚季军替换事件流中同类奖项，其他奖项保留。</p>
+              <p class="field-hint">按实际队伍数颁发，替换导入的同类奖项。</p>
             </fieldset>
           </div>
 
           <div class="setting-group" id="firstSolveSettings">
             <div class="group-title">各题最快解题奖</div>
-            <div class="field"><label class="field-label" for="firstSolveMode">最快解题奖范围</label><select id="firstSolveMode" class="input select"><option value="imported">沿用事件流中的最快解题奖</option><option value="all">为全部题目生成</option><option value="selected">为指定题目生成</option></select></div>
+            <div class="field"><label class="field-label" for="firstSolveMode">最快解题奖范围</label><select id="firstSolveMode" class="input select"><option value="imported">使用事件流奖项</option><option value="all">全部题目</option><option value="selected">指定题目</option></select></div>
             <fieldset id="firstSolveFields" class="medal-fields" disabled>
               <legend class="visually-hidden">最快解题奖设置</legend>
               <div id="firstSolveProblemPicker" hidden><p class="field-label" id="firstSolveProblemLabel">选择题目（可多选）</p><div id="firstSolveProblemList" class="problem-choices" role="group" aria-labelledby="firstSolveProblemLabel"></div></div>
-              <label class="switch-row" for="firstSolveIncludeUnrank"><span class="switch-text"><span>包含打星队伍</span><small>开启后，打星队伍也可获得最快解题奖；冠亚季军和金银铜名额仍只计算正式队伍。</small></span><span class="switch"><input type="checkbox" id="firstSolveIncludeUnrank"><span class="switch-track" aria-hidden="true"></span></span></label>
-              <p class="field-hint">按该题最早通过（AC）的比赛时间计算，时间完全相同则共同获奖。未有人通过，或有更早、同一时间的提交尚未判定时，暂不颁发该题奖项。生成结果替换导入的最快解题奖。</p>
+              <label class="switch-row" for="firstSolveIncludeUnrank"><span class="switch-text"><span>包含打星队伍</span><small>仅影响最快解题奖。</small></span><span class="switch"><input type="checkbox" id="firstSolveIncludeUnrank"><span class="switch-track" aria-hidden="true"></span></span></label>
+              <p class="field-hint">按最早 AC 的比赛时间评奖，同一时间可并列。无人通过或更早、同时提交仍待判定时暂不颁发；生成结果替换导入的同类奖项。</p>
             </fieldset>
-            <div class="panel-actions"><button id="previewAwardsBtn" class="btn btn-secondary" type="button">预览全部获奖名单</button></div>
+            <div class="panel-actions"><button id="previewAwardsBtn" class="btn btn-secondary" type="button">查看获奖名单</button></div>
             <div id="awardPreview" class="award-preview" role="status" aria-live="polite" hidden></div>
           </div>
 
@@ -218,22 +210,23 @@
               <div class="field">
                 <label class="field-label" for="title">标题文字</label>
                 <input type="text" id="title" class="input" maxlength="80" autocomplete="off"
-                       placeholder="留空则保留原始画面（无标题）" aria-describedby="titleHint">
-                <p class="field-hint" id="titleHint">显示在榜单顶部；留空时与 ICPC Resolver 原版一致，不显示标题。</p>
+                       placeholder="留空不显示标题" aria-describedby="titleHint">
+                <p class="field-hint" id="titleHint">显示在榜单顶部。</p>
               </div>
             </div>
           </div>
         </section>
     </div>
-    <div class="page-shell page-next"><a class="btn btn-secondary" href="/preview.html"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>前往实时预览</a></div>
+    <div class="page-shell page-next"><a class="btn btn-secondary" href="/preview.html"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>前往滚榜预览</a></div>
 
-<footer class="footer"><span>ICPC Tools Resolver · 非官方 Web 实现</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
+<footer class="footer"><span>ICPC Resolver</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub</a></footer>
   </main>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="false"></div>
 
 
   <script type="module" src="/js/config.js"></script>
+  <script type="module" src="/js/output-settings.js"></script>
   <script type="module" src="/js/live-recovery.js"></script>
 </body>
 </html>

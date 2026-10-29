@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/play.css" />
   </head>
   <body class="is-loading spectator">
-    <div id="stage" aria-label="实时滚榜画面"><canvas id="screen" width="1920" height="1080"></canvas></div>
+    <div id="stage" aria-label="实时滚榜画面"><canvas id="screen" width="2560" height="1440"></canvas></div>
     <div id="loading" class="overlay"><div class="loader-card"><div class="spinner" aria-hidden="true"></div><div><h1 id="loading-title">正在连接滚榜</h1><p id="loading-hint">连接成功后自动跟随主持端…</p></div></div></div>
     <div id="error" class="overlay" hidden><div class="loader-card error-card"><div class="error-mark">!</div><div><h1>无法观看滚榜</h1><p id="error-message"></p><button id="retry" class="pill-btn" type="button">重新连接</button></div></div></div>
     <div id="hud" class="hud" hidden>
@@ -18,7 +18,7 @@
       <div class="hud-right"><span id="connection-status" class="badge" role="status" aria-live="polite">连接中</span><span id="hud-step-count" class="hud-count"></span></div>
       <div class="progress"><span id="progress-bar"></span></div>
     </div>
-    <div id="controls-wrap"><div class="controls" role="toolbar" aria-label="观看设置"><span class="viewer-label">观众视图 · 自动同步</span><button id="btn-display" class="pill-btn" type="button" title="本机大屏校准 (C)">大屏校准</button><button id="btn-full" class="pill-btn" type="button">全屏 (F)</button></div></div>
+    <div id="controls-wrap"><div class="controls" role="toolbar" aria-label="观看设置"><span class="viewer-label">观众视图 · 自动同步</span><button id="btn-display" class="pill-btn" type="button" title="本机画面设置 (C)">画面设置</button><button id="btn-full" class="pill-btn" type="button">全屏 (F)</button></div></div>
     <script type="module" src="/js/display-settings.js"></script>
     <script type="module" src="/js/watch.js"></script>
   </body>

@@ -16,7 +16,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Tabl
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = json.loads((ROOT / 'package.json').read_text())['version']
-DOC_DATE = '2026-10-28'
+DOC_DATE = '2026-10-29'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--font', default=os.environ.get('RESOLVER_DOC_FONT'))
 args = parser.parse_args()
@@ -26,7 +26,7 @@ if not font:
     raise SystemExit('Pass --font /path/to/a-CJK-font.ttf, or set RESOLVER_DOC_FONT.')
 pdfmetrics.registerFont(TTFont('ManualCN', font))
 pdfmetrics.registerFontFamily('ManualCN', normal='ManualCN', bold='ManualCN', italic='ManualCN', boldItalic='ManualCN')
-blue, ink, muted, line = map(colors.HexColor, ['#1765c1', '#182337', '#61718a', '#e4e8ef'])
+blue, ink, muted, line = map(colors.HexColor, ['#141413', '#262627', '#696969', '#d9d4ce'])
 styles = {
     'body': ParagraphStyle('body', fontName='ManualCN', fontSize=10, leading=16, textColor=ink, spaceAfter=7, wordWrap='CJK'),
     'title': ParagraphStyle('title', fontName='ManualCN', fontSize=28, leading=40, textColor=ink, spaceAfter=18, wordWrap='CJK'),
@@ -41,9 +41,9 @@ repo = 'https://github.com/Albert-Li-Sz/Resolver-Web/blob/main/doc/'
 
 def inline(text):
     text = escape(text)
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', lambda m: f'<link href="{escape(m[2] if m[2].startswith("http") else repo + m[2], quote=True)}" color="#1765c1">{m[1]}</link>', text)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', lambda m: f'<link href="{escape(m[2] if m[2].startswith("http") else repo + m[2], quote=True)}" color="#9a3a0a">{m[1]}</link>', text)
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    return re.sub(r'`([^`]+)`', r'<font color="#1765c1">\1</font>', text)
+    return re.sub(r'`([^`]+)`', r'<font color="#9a3a0a">\1</font>', text)
 
 def footer(canvas, doc):
     canvas.saveState()
@@ -68,8 +68,8 @@ story = [Spacer(1, 45), Paragraph('Resolver Web', styles['title']), Paragraph('�
          Paragraph(f'版本 {VERSION} · {DOC_DATE}', styles['body']),
          Paragraph('本指南适用于赛事主持人、现场转播操作员与部署管理员。界面截图来自 Browser 实测，部分展示较早版本界面；示例成绩为合成练习数据。', styles['body']), Spacer(1, 18),
          Paragraph('阅读顺序', styles['h2']),
-         Paragraph('1 打开配置中心　2 导入赛事　3 准备素材　4 显示与奖项<br/>5 手动预览　6 配置预设　7 主持滚榜　8 分享观众链接　9 收尾与排错', styles['body']), Spacer(1, 16),
-         Paragraph('<link href="https://github.com/Albert-Li-Sz/Resolver-Web" color="#1765c1">项目、示例下载及部署教程：github.com/Albert-Li-Sz/Resolver-Web</link>', styles['body'])]
+         Paragraph('1 打开配置中心　2 导入赛事　3 准备素材　4 显示与奖项<br/>5 手动预览　6 配置管理　7 主持滚榜　8 分享观众链接　9 收尾与排错', styles['body']), Spacer(1, 16),
+         Paragraph('<link href="https://github.com/Albert-Li-Sz/Resolver-Web" color="#9a3a0a">项目、示例下载及部署教程：github.com/Albert-Li-Sz/Resolver-Web</link>', styles['body'])]
 
 for section in sections[1:]:
     lines = section.strip().splitlines()

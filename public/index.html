@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#F3F0EE">
   <meta name="description" content="ICPC Resolver 滚榜配置中心：载入赛事事件流，配置组织 Logo、画面与手动滚榜。">
-  <title>ICPC Resolver · 数据源</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231765c1'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
+  <title>ICPC Resolver · 赛事导入</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23141413'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
   <link rel="preload" href="/assets/font/dm-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/config.css">
 </head>
@@ -46,31 +46,15 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="m19 5-7 7"/><path d="M18.5 14v4.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V7a1.5 1.5 0 0 1 1.5-1.5H10"/></symbol>
   </svg>
 
-  <aside class="sidebar" aria-label="配置导航">
-    <a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a>
-    <div class="nav-group-label">赛事配置</div>
-    <nav class="side-nav" aria-label="配置页面"><a class="side-link is-active" href="/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>数据源</span></a>
-<a class="side-link" href="/logos.html"><svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg><span>Logo 与照片</span></a>
-<a class="side-link" href="/display.html"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg><span>显示与节奏</span></a>
-<a class="side-link" href="/preview.html"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg><span>实时预览</span></a>
-<a class="side-link" href="/presets.html"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg><span>配置预设</span></a></nav>
-    <div class="sidebar-bottom"><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/tree/main/examples" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg><span>示例榜单</span></a><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/blob/main/doc/使用指南.pdf" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>使用文档</span></a><p>Resolver Web · v1.2</p></div>
-  </aside>
-  <header class="topbar"><div class="topbar-inner"><div class="mobile-brand"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a></div><span class="topbar-title">滚榜配置中心</span><div class="topbar-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></div></header>
-  <nav class="mobile-nav" aria-label="配置页面"><a href="/" class="is-active" aria-current="page">数据源</a>
-<a href="/logos.html">Logo 与照片</a>
-<a href="/display.html">显示与节奏</a>
-<a href="/preview.html">实时预览</a>
-<a href="/presets.html">配置预设</a></nav>
+  <header class="app-header"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a><nav class="desktop-nav" aria-label="配置页面"><a href="/" class="is-active" aria-current="page">赛事导入</a><a href="/logos.html">校徽与照片</a><a href="/display.html">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav><div class="header-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-label="检查服务连接" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></header><nav class="mobile-nav" aria-label="配置页面"><a href="/" class="is-active" aria-current="page">赛事导入</a><a href="/logos.html">校徽与照片</a><a href="/display.html">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav>
 
   <main class="page" id="main">
-<section class="page-head"><h1 id="pageTitle">数据源</h1><p class="page-sub">导入赛事事件流，开始准备一场滚榜。</p></section>
-<ol class="workflow" aria-label="滚榜准备流程"><li class="is-current" aria-current="step"><a href="/"><span class="step-number">1</span><span>导入赛事</span></a></li><li><a href="/logos.html"><span class="step-number">2</span><span>完善配置</span></a></li><li><a href="/preview.html"><span class="step-number">3</span><span>预览与滚榜</span></a></li></ol>
+<section class="page-head"><h1 id="pageTitle">赛事导入</h1></section>
 <div class="offline-banner" id="offlineBanner" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
       <div class="offline-banner-text">
         <strong>服务暂未连接</strong>
-        <span>请检查服务是否启动，再点击重试。当前赛事与配置会保留。</span>
+        <span>请检查服务后重试，当前配置已保留。</span>
       </div>
       <button type="button" class="btn btn-sm btn-ghost" id="retryConnBtn">
         <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
@@ -83,13 +67,13 @@
           <div class="card-head">
             <span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-database"></use></svg></span>
             <div class="card-head-text">
-              <h2 id="dataCardTitle">导入赛事</h2>
-              <p>支持 CCS Contest API 标准事件流。</p>
+              <h2 id="dataCardTitle">导入事件流</h2>
+
             </div>
             <span class="badge badge-muted" id="sourceBadge" hidden></span>
           </div>
 
-          <div class="segmented" role="tablist" aria-label="选择数据源类型">
+          <div class="segmented" role="tablist" aria-label="选择导入方式">
             <button type="button" class="seg-btn is-active" role="tab" id="tab-upload"
                     aria-selected="true" aria-controls="panel-upload" data-tab="upload">
               <svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>
@@ -110,7 +94,7 @@
                    aria-label="点击或拖拽上传事件流文件，支持 NDJSON、JSONL 与 JSON">
                 <svg class="icon dropzone-icon" aria-hidden="true"><use href="#i-upload"></use></svg>
                 <div class="dropzone-text">
-                  <strong>点击选择，或将文件拖到此处</strong>
+                  <strong>选择或拖入事件流文件</strong>
                   <span><code>.ndjson</code> / <code>.jsonl</code> / <code>.json</code> · 最大 38 MB</span>
                 </div>
                 <span class="dropzone-cta">选择文件</span>
@@ -126,7 +110,7 @@
                   <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
                 </button>
               </div>
-              <p class="panel-hint">Hydro 用户可上传 CDP 导出包中的 event-feed.ndjson。</p>
+              <p class="panel-hint">支持 CCS Contest API 与 Hydro CDP 事件流。</p>
             </div>
 
             <!-- Remote -->
@@ -153,7 +137,6 @@
           </div>
 
           </section>
-        <aside class="card import-guide" aria-labelledby="guideTitle"><h2 id="guideTitle">开始之前</h2><ol class="guide-list"><li><strong>准备完整事件流</strong><p>文件应包含比赛、队伍、题目、提交和判题记录，才能重建揭晓过程。</p></li><li><strong>确认封榜记录</strong><p>检查封榜时长；赛后已解封的数据也可在「显示与节奏」中还原。</p></li><li><strong>先预览，再开始</strong><p>完成配置后，先在实时预览中确认画面与奖项，再开始正式滚榜。</p></li></ol><div class="guide-download"><h3>需要试用数据？</h3><p>从 GitHub 下载示例后，通过左侧上传。</p><a href="https://github.com/Albert-Li-Sz/Resolver-Web/tree/main/examples" target="_blank" rel="noopener noreferrer">下载示例榜单 ↗</a></div></aside>
         <section class="card contest-card" aria-labelledby="currentContestTitle"><div class="card-head"><h2 id="currentContestTitle">当前赛事</h2></div>
 
           <div id="mediaImportReport" class="inline-note is-info" hidden></div>
@@ -162,8 +145,8 @@
             <div class="empty-state" id="summaryEmpty">
               <span class="empty-icon" aria-hidden="true"><svg class="icon"><use href="#i-flag"></use></svg></span>
               <div>
-                <strong>尚未载入赛事</strong>
-                <p>上传事件流后，这里会显示队伍、题目和封榜信息。</p>
+                <strong>尚未导入赛事</strong>
+                <p>导入后显示赛事信息。</p>
               </div>
             </div>
 
@@ -173,7 +156,7 @@
                   <svg class="icon"><use href="#i-flag"></use></svg>
                 </span>
                 <div class="contest-meta">
-                  <span class="summary-kicker">当前赛事</span>
+
                   <h3 id="contestName">—</h3>
                   <p id="contestSub">—</p>
                 </div>
@@ -194,11 +177,11 @@
                 </div>
                 <div class="stat">
                   <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
-                  <div class="stat-text"><span class="stat-value" id="statFreeze">—</span><span class="stat-label">封榜</span></div>
+                  <div class="stat-text"><span class="stat-value" id="statFreeze">—</span><span class="stat-label">封榜时长</span></div>
                 </div>
                 <div class="stat">
                   <svg class="icon" aria-hidden="true"><use href="#i-hourglass"></use></svg>
-                  <div class="stat-text"><span class="stat-value" id="statPending">—</span><span class="stat-label">待定</span></div>
+                  <div class="stat-text"><span class="stat-value" id="statPending">—</span><span class="stat-label">待揭晓提交</span></div>
                 </div>
               </div>
 
@@ -214,7 +197,8 @@
         <!-- Organization logos ------------------------------------------- -->
     </div>
 
-<footer class="footer"><span>ICPC Tools Resolver · 非官方 Web 实现</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
+<div class="page-utilities"><div class="resource-links"><a href="https://github.com/Albert-Li-Sz/Resolver-Web/tree/main/examples" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>示例榜单</a><a href="https://github.com/Albert-Li-Sz/Resolver-Web/blob/main/doc/使用指南.pdf" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>使用指南</a></div><a class="btn btn-secondary" href="/logos.html">下一步：校徽与照片<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a></div>
+<footer class="footer"><span>ICPC Resolver</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub</a></footer>
   </main>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="false"></div>

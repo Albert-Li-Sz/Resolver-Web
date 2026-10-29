@@ -51,6 +51,28 @@ test('proxy HTML errors are readable without leaking their body', async () => {
     err.status === 503 && err.message.includes('HTTP 503') && !err.message.includes('SECRET'));
 });
 
+test('a ready preview exposes the canvas; loading and error states restore the overlay', async () => {
+  const text = (await readFile(new URL('../public/js/config.js', import.meta.url), 'utf8'))
+    .replace(/^import .*;\n/gm, '').replace('\ninit();', '\n');
+  const nodes = new Map();
+  const context = { FREEZE_DEFAULTS, MEDAL_DEFAULTS, MediaLibraryUI: class {},
+    document: { getElementById(id) {
+      if (!nodes.has(id)) nodes.set(id, { hidden: false, dataset: {}, classList: { add() {}, remove() {} } });
+      return nodes.get(id);
+    } }, window: {}, setTimeout, clearTimeout, console };
+  vm.createContext(context);
+  vm.runInContext(text + '\nglobalThis.setState = setPreviewState;', context);
+  context.setState('ready');
+  assert.equal(nodes.get('previewOverlay').hidden, true);
+  for (const kind of ['loading', 'error', 'empty']) {
+    context.setState(kind);
+    assert.equal(nodes.get('previewOverlay').hidden, false, kind);
+    const visible = { loading: 'previewLoading', error: 'previewError', empty: 'previewEmpty' }[kind];
+    assert.equal(nodes.get(visible).hidden, false);
+  }
+  context.setState('ready'); assert.equal(nodes.get('previewOverlay').hidden, true);
+});
+
 test('spectator reconnects CLOSED streams after errors, skips duplicate snapshots and keeps healthy connections', async () => {
   const text = (await readFile(new URL('../public/js/watch.js', import.meta.url), 'utf8'))
     .replace(/^import .*;\n/gm, '').replace('\nboot();', '\n');

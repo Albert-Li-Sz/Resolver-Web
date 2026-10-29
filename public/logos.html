@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#F3F0EE">
   <meta name="description" content="按组织配置 Logo，按队伍上传颁奖照片。">
-  <title>Logo 与队伍照片 · ICPC Resolver</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231765c1'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
+  <title>校徽与照片 · ICPC Resolver</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23141413'/%3E%3Crect x='4' y='4' width='16' height='4.6' rx='1.5' fill='white'/%3E%3Crect x='4' y='9.7' width='11' height='4.6' rx='1.5' fill='white' opacity='.74'/%3E%3Crect x='4' y='15.4' width='7' height='4.6' rx='1.5' fill='white' opacity='.5'/%3E%3C/svg%3E">
   <link rel="preload" href="/assets/font/dm-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/config.css">
 </head>
@@ -46,36 +46,19 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="m19 5-7 7"/><path d="M18.5 14v4.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V7a1.5 1.5 0 0 1 1.5-1.5H10"/></symbol>
   </svg>
 
-  <aside class="sidebar" aria-label="配置导航">
-    <a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a>
-    <div class="nav-group-label">赛事配置</div>
-    <nav class="side-nav" aria-label="配置页面"><a class="side-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>数据源</span></a>
-<a class="side-link is-active" href="/logos.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg><span>Logo 与照片</span></a>
-<a class="side-link" href="/display.html"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg><span>显示与节奏</span></a>
-<a class="side-link" href="/preview.html"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg><span>实时预览</span></a>
-<a class="side-link" href="/presets.html"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg><span>配置预设</span></a></nav>
-    <div class="sidebar-bottom"><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/tree/main/examples" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg><span>示例榜单</span></a><a class="side-link" href="https://github.com/Albert-Li-Sz/Resolver-Web/blob/main/doc/使用指南.pdf" target="_blank" rel="noopener noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg><span>使用文档</span></a><p>Resolver Web · v1.2</p></div>
-  </aside>
-  <header class="topbar"><div class="topbar-inner"><div class="mobile-brand"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a></div><span class="topbar-title">滚榜配置中心</span><div class="topbar-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></div></header>
-  <nav class="mobile-nav" aria-label="配置页面"><a href="/">数据源</a>
-<a href="/logos.html" class="is-active" aria-current="page">Logo 与照片</a>
-<a href="/display.html">显示与节奏</a>
-<a href="/preview.html">实时预览</a>
-<a href="/presets.html">配置预设</a></nav>
+  <header class="app-header"><a class="brand" href="/" aria-label="ICPC Resolver 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><rect x="2" y="15" width="6" height="11" rx="1.5"/><rect x="11" y="2" width="6" height="24" rx="1.5"/><rect x="20" y="10" width="6" height="16" rx="1.5"/></svg></span><span class="brand-name">ICPC Resolver</span></a><nav class="desktop-nav" aria-label="配置页面"><a href="/">赛事导入</a><a href="/logos.html" class="is-active" aria-current="page">校徽与照片</a><a href="/display.html">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav><div class="header-actions"><button type="button" class="status-pill" id="apiStatus" data-state="checking" title="服务连接状态，点击重新检测" aria-label="检查服务连接" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text" id="apiStatusText">连接中…</span></button><button type="button" class="btn btn-primary" id="startBtn"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span class="btn-label">开始滚榜</span><span class="spinner" aria-hidden="true"></span></button></div></header><nav class="mobile-nav" aria-label="配置页面"><a href="/">赛事导入</a><a href="/logos.html" class="is-active" aria-current="page">校徽与照片</a><a href="/display.html">画面与奖项</a><a href="/preview.html">滚榜预览</a><a href="/presets.html">配置管理</a></nav>
 
   <main class="page" id="main">
-<section class="recovery-banner"><div><strong>赛前准备离线素材</strong><p id="offlineMediaReport" role="status">提前将本场校徽与队伍照片保存到服务端。开始滚榜时也会自动检查。</p></div><button type="button" id="prepareMediaBtn" class="btn btn-primary">检查并缓存素材</button></section>
+
     <section class="page-head">
-      <h1>Logo 与队伍照片</h1>
-      <p class="page-sub">按组织配置队徽，按队伍上传照片；照片用于颁奖画面，配置可随预设保存。</p>
-      <p class="page-contest" id="pageContest">当前赛事：—</p>
+      <h1>校徽与照片</h1>
+      <p class="page-contest" id="pageContest">尚未导入赛事</p>
     </section>
-<ol class="workflow" aria-label="滚榜准备流程"><li><a href="/"><span class="step-number">1</span><span>导入赛事</span></a></li><li class="is-current" aria-current="step"><a href="/logos.html"><span class="step-number">2</span><span>完善配置</span></a></li><li><a href="/preview.html"><span class="step-number">3</span><span>预览与滚榜</span></a></li></ol>
 <div class="offline-banner" id="offlineBanner" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
       <div class="offline-banner-text">
         <strong>服务暂未连接</strong>
-        <span>请检查服务是否启动，再点击重试。当前赛事与配置会保留。</span>
+        <span>请检查服务后重试，当前配置已保留。</span>
       </div>
       <button type="button" class="btn btn-sm btn-ghost" id="retryConnBtn">
         <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
@@ -83,17 +66,18 @@
       </button>
     </div>
 
+    <section class="recovery-banner"><div><strong>离线素材</strong><p id="offlineMediaReport" role="status">正式滚榜前缓存校徽与照片。</p></div><button type="button" id="prepareMediaBtn" class="btn btn-primary">缓存当前赛事素材</button></section>
     <div class="page-shell">
 <section class="card library-card" aria-labelledby="libraryTitle">
-  <div class="card-head"><div class="card-head-text"><h2 id="libraryTitle">赛前素材库</h2><p>无需等待比赛结束，先准备组织 Logo、队伍 Logo 和照片；导入事件流时按 ID 或名称精确匹配。</p></div></div>
+  <div class="card-head"><div class="card-head-text"><h2 id="libraryTitle">赛前素材库</h2><p>按名称或 ID 匹配，导入赛事时自动应用。</p></div></div>
   <div class="library-content">
     <div class="field-grid medal-grid">
-      <div class="field"><label class="field-label" for="libraryKind">素材类型</label><select id="libraryKind" class="input select"><option value="organization-logo">组织 Logo</option><option value="team-logo">队伍 Logo</option><option value="team-photo">队伍照片</option></select></div>
-      <div class="field"><label class="field-label" for="libraryMatch">匹配方式</label><select id="libraryMatch" class="input select"><option value="name">按名称精确匹配</option><option value="id">按 ID 精确匹配</option></select></div>
+      <div class="field"><label class="field-label" for="libraryKind">素材类型</label><select id="libraryKind" class="input select"><option value="organization-logo">学校 / 组织校徽</option><option value="team-logo">队伍标识</option><option value="team-photo">队伍照片</option></select></div>
+      <div class="field"><label class="field-label" for="libraryMatch">匹配方式</label><select id="libraryMatch" class="input select"><option value="name">名称完全一致</option><option value="id">ID 完全一致</option></select></div>
       <div class="field"><label class="field-label" for="libraryKey">组织 / 队伍名称或 ID</label><input id="libraryKey" class="input" maxlength="300" placeholder="单张可指定；留空使用文件名"></div>
     </div>
-    <p class="field-hint">可多选图片，批量导入时以文件名（不含扩展名）作为匹配值。重名对象请用 ID；同时命中时 ID 规则优先。同一匹配规则再次上传会替换图片。</p>
-    <div class="panel-actions"><button id="libraryUploadBtn" class="btn btn-secondary" type="button">选择图片并保存</button><button id="libraryApplyBtn" class="btn btn-secondary" type="button">应用到当前赛事</button></div>
+    <p class="field-hint">支持多选；留空时按文件名匹配。同名对象用 ID 区分，ID 规则优先。</p>
+    <div class="panel-actions"><button id="libraryUploadBtn" class="btn btn-secondary" type="button">上传素材</button><button id="libraryApplyBtn" class="btn btn-secondary" type="button">应用到当前赛事</button></div>
     <input id="libraryFiles" type="file" accept="image/*" multiple hidden>
     <p id="libraryStatus" class="inline-note is-info" role="status" hidden></p>
     <p id="libraryReport" class="inline-note is-info" hidden></p>
@@ -107,36 +91,36 @@
           <div class="card-head">
             <span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-image"></use></svg></span>
             <div class="card-head-text">
-              <h2 id="logosCardTitle">Logo 管理</h2>
-              <p>导入时按学校中英文名称自动匹配 Hydro 校徽；未匹配或图片加载失败时使用 ICPC 官方 Logo。</p>
+              <h2 id="logosCardTitle">学校校徽</h2>
+              <p>自动匹配学校校徽；未匹配时使用 ICPC 官方 Logo。</p>
             </div>
             <span class="badge badge-muted" id="logoSummary">—</span>
           </div>
           <div class="logo-manager">
             <div class="logo-manager-copy">
-              <strong>为组织替换或上传 Logo</strong>
-              <p class="field-hint" id="logoManagerHint">载入赛事后自动匹配学校 Logo，也可为组织上传图片进行替换。</p>
+              <strong>当前赛事校徽</strong>
+              <p class="field-hint" id="logoManagerHint">导入赛事后可替换校徽。</p>
             </div>
             <button type="button" class="btn btn-secondary" id="manageLogosBtn">
               <svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg>
-              <span class="btn-label">管理组织 Logo</span>
+              <span class="btn-label">管理校徽</span>
             </button>
           </div>
         </section>
 
         <section class="card" aria-labelledby="photoTitle">
-          <div class="card-head"><span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-image"></use></svg></span><div class="card-head-text"><h2 id="photoTitle">队伍 Logo 与照片</h2><p>队伍 Logo 优先用于榜单；组织 Logo 与队伍照片用于颁奖画面。可在赛前导入名单后逐队设置。</p></div></div>
+          <div class="card-head"><span class="icon-tile" aria-hidden="true"><svg class="icon"><use href="#i-image"></use></svg></span><div class="card-head-text"><h2 id="photoTitle">队伍标识与照片</h2><p>队伍标识用于榜单，照片用于颁奖画面。</p></div></div>
           <div class="photo-toolbar"><label class="visually-hidden" for="photoSearch">搜索队伍或组织</label><input id="photoSearch" class="input" type="search" placeholder="搜索队伍名称、ID 或组织"><span id="photoCount" aria-live="polite" class="field-hint"></span></div>
           <input id="photoFileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
           <div id="photoList" class="photo-list" role="list"></div>
           <div class="panel-actions"><button id="photoPrev" class="btn btn-sm btn-secondary" type="button">上一页</button><span id="photoPage" aria-live="polite" class="field-hint"></span><button id="photoNext" class="btn btn-sm btn-secondary" type="button">下一页</button></div>
-          <p class="field-hint photo-footer">支持 PNG / JPG / WebP / GIF / SVG，单张原图不超过 6 MB。启用“显示奖项”后，照片会用于主持端和观众端颁奖画面。</p>
+          <p class="field-hint photo-footer">支持 PNG / JPG / WebP / GIF / SVG，单张不超过 6 MB。</p>
         </section>
 
         <!-- Display & rhythm --------------------------------------------- -->
     </div>
 
-<footer class="footer"><span>ICPC Tools Resolver · 非官方 Web 实现</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
+<footer class="footer"><span>ICPC Resolver</span><a href="https://github.com/Albert-Li-Sz/Resolver-Web" target="_blank" rel="noopener noreferrer">GitHub</a></footer>
   </main>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="false"></div>
@@ -145,8 +129,8 @@
     <div class="modal-card">
       <div class="modal-head">
         <div>
-          <h2 id="logoDialogTitle">组织 Logo</h2>
-          <p class="modal-desc">学校 Logo 已自动匹配；未匹配时使用 ICPC 官方 Logo。上传图片可替换组织 Logo，移除后恢复导入或自动匹配的 Logo。</p>
+          <h2 id="logoDialogTitle">学校 / 组织校徽</h2>
+          <p class="modal-desc">上传可替换校徽；移除后恢复原始或自动匹配的图片。</p>
         </div>
         <button type="button" class="icon-btn" data-close-dialog="logoDialog" title="关闭" aria-label="关闭对话框">
           <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
@@ -155,12 +139,12 @@
       <div class="logo-toolbar">
         <label class="logo-search" for="logoSearch">
           <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
-          <input type="search" id="logoSearch" class="input" placeholder="搜索组织、学校或队伍" autocomplete="off">
+          <input type="search" id="logoSearch" class="input" aria-label="搜索学校、组织或队伍" placeholder="搜索组织、学校或队伍" autocomplete="off">
         </label>
         <span class="logo-dialog-count" id="logoDialogCount">—</span>
       </div>
       <div class="logo-org-list" id="logoOrgList" role="list" aria-label="组织列表"></div>
-      <p class="field-hint logo-dialog-hint">支持 PNG / JPG / WebP / SVG；图片会自动压缩到 256px 内。Logo 保存到服务端，赛事数据与配置预设保存图片地址。</p>
+      <p class="field-hint logo-dialog-hint">支持 PNG / JPG / WebP / SVG，上传后自动压缩。</p>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close-dialog="logoDialog">关闭</button>
       </div>

@@ -74,13 +74,14 @@ export class MediaLibraryUI {
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-sm btn-secondary'; remove.textContent = '删除规则'; remove.dataset.libraryDelete = record.id; remove.setAttribute('aria-label', `删除规则：${record.key}`);
       row.append(img, info, remove); list.append(row);
     }
-    if (!rows.length) list.textContent = '暂无素材。可在比赛开始前上传图片并填写组织或队伍的 ID / 名称。';
+    if (!rows.length) list.textContent = this.items.length ? '没有匹配的素材。' : '暂无素材';
   }
 
   showReport(report) {
     for (const id of ['libraryReport', 'mediaImportReport']) {
       const target = $(id); if (!target) continue;
-      target.hidden = false; target.textContent = `赛前素材：匹配 ${report.matched} 项；未应用 ${report.unmatched.length} 项。${report.preserved ? `已沿用本赛事手动设置的 ${report.preserved} 项素材。` : ''}`;
+      target.hidden = !report.matched && !report.unmatched.length && !report.preserved;
+      target.textContent = `素材匹配 ${report.matched} 项，未应用 ${report.unmatched.length} 项。${report.preserved ? `保留手动设置 ${report.preserved} 项。` : ''}`;
       if (report.unmatched.length) {
         const details = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = '查看未匹配/重名条目'; details.append(summary);
         const list = document.createElement('ul');

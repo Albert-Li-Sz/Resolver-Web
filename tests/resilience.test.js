@@ -116,7 +116,7 @@ test('32:9 upper-half LED output, safe margins and renderer columns stay aligned
   assert.equal(custom.width, 10); assert.equal(custom.height, 10); assert.equal(custom.margin, 15);
   const canvas = { style: {}, dataset: { logicalWidth: '3840' }, getContext: () => ({ measureText: () => ({ width: 20 }) }) };
   const view = new ResolverView(canvas, game);
-  assert.equal(canvas.width, 3840); assert.equal(canvas.height, 1080);
+  assert.equal(canvas.width, 5120); assert.equal(canvas.height, 1440);
   assert.ok(Math.abs(view.layout.solvedCenter - view.layout.headerSolvedCenter) < 8);
   assert.ok(view.layout.timeCenter > 3700 && view.layout.timeCenter < 3840);
   const before = view.captureState();

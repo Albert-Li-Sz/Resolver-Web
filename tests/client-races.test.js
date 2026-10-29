@@ -26,7 +26,8 @@ async function configHarness() {
   const context = { FREEZE_DEFAULTS, MEDAL_DEFAULTS, normalizeFreezeOptions, normalizeMedalOptions,
     applySchoolLogos, applyMediaLibrary, preserveContestMedia, structuredClone, URL, console,
     MediaLibraryUI: class { items = []; async load() {} clearReport() {} showReport() {} },
-    window: { confirm: () => true }, document: { getElementById(id) {
+    confirmAction: async () => true,
+    window: {}, document: { getElementById(id) {
       if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id);
     } },
     setTimeout(fn, delay) { const id = ++timer; timers.set(id, { fn, delay }); return id; },
@@ -75,6 +76,25 @@ test('concurrent preset responses preserve the latest selection and its options'
   first.resolve({ name: 'First', contest: contest('First'), config: { title: 'First title' } }); await oldLoad;
   assert.equal(h.state.contest.name, 'Second');
   assert.equal(h.state.options.title, 'Second title');
+});
+
+test('canceling replacement keeps the current contest, options and pending-load generation', async () => {
+  const h = await configHarness();
+  h.state.contest = contest('Current'); h.state.options.title = 'Current title';
+  h.context.confirmAction = async () => false;
+  const token = h.state.contestLoadToken;
+  await h.applyPreset({ name: 'Canceled', contest: contest('Canceled'), config: { title: 'Canceled title' } });
+  assert.equal(h.state.contest.name, 'Current'); assert.equal(h.state.options.title, 'Current title');
+  assert.equal(h.state.contestLoadToken, token);
+});
+
+test('accepting an old confirmation cannot replace a contest that changed while it was open', async () => {
+  const h = await configHarness(); const confirmation = deferred();
+  h.state.contest = contest('Original'); h.context.confirmAction = () => confirmation.promise;
+  const load = h.applyPreset({ name: 'Old intent', contest: contest('Old intent'), config: {} });
+  h.state.contestLoadToken++; h.state.contest = contest('Newer import');
+  confirmation.resolve(true); await load;
+  assert.equal(h.state.contest.name, 'Newer import');
 });
 
 test('changing preview options invalidates the in-flight response before the debounce fires', async () => {

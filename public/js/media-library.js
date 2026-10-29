@@ -1,6 +1,6 @@
 export const MEDIA_KINDS = {
-  'organization-logo': { list: 'organizations', field: 'logo', label: '组织 Logo' },
-  'team-logo': { list: 'teams', field: 'logo', label: '队伍 Logo' },
+  'organization-logo': { list: 'organizations', field: 'logo', label: '学校 / 组织校徽' },
+  'team-logo': { list: 'teams', field: 'logo', label: '队伍标识' },
   'team-photo': { list: 'teams', field: 'photo', label: '队伍照片' },
 };
 const key = (value) => String(value ?? '').trim();

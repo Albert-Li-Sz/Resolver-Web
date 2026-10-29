@@ -1,4 +1,5 @@
 import { prepareOfflineContest } from './offline-media.js';
+import { confirmAction } from './confirmation.js';
 import { FREEZE_DEFAULTS, normalizeFreezeOptions, withFreezeOptions } from './freeze.js';
 import { applyMediaLibrary, preserveContestMedia } from './media-library.js';
 import { MediaLibraryUI } from './media-library-ui.js';
@@ -138,9 +139,13 @@ function rememberState() {
     source: state.source, sourceName: state.sourceName, mediaMatchReport: state.mediaMatchReport, lastPresetName: state.lastPresetName };
   let button = $('undoContestBtn');
   if (!button) {
+    const notice = document.createElement('div'); notice.id = 'undoNotice'; notice.className = 'undo-notice';
+    const text = document.createElement('span'); text.textContent = '已保留载入前的内容'; notice.append(text);
     button = document.createElement('button'); button.id = 'undoContestBtn'; button.type = 'button';
     button.className = 'btn btn-secondary'; button.textContent = '撤销载入';
-    $('startBtn').before(button);
+    notice.append(button);
+    const heading = document.querySelector('.page-head');
+    if (heading) heading.after(notice); else $('main').prepend(notice);
     button.addEventListener('click', () => {
       const backup = state.undo;
       if (!backup) return;
@@ -149,16 +154,20 @@ function rememberState() {
       state.lastPresetName = backup.lastPresetName;
       applyContest(backup.contest, backup);
       state.mediaMatchReport = backup.mediaMatchReport;
-      renderSummary(); schedulePersist(); button.hidden = true;
+      renderSummary(); schedulePersist(); notice.hidden = true;
       showToast('已恢复载入前的赛事、选项与手动素材。', 'success');
     });
   }
-  button.hidden = false;
+  $('undoNotice').hidden = false;
 }
 
-function confirmReplacement(label) {
+async function confirmReplacement(label) {
   if (!state.contest || state.source === 'offline') return true;
-  if (!window.confirm(`${label}将替换当前赛事或选项。当前内容将保留一份可撤销备份，是否继续？`)) return false;
+  const token = state.contestLoadToken, contest = state.contest;
+  if (!await confirmAction({ title: label, message: '将替换当前赛事或选项，可在本页撤销本次载入。' })) return false;
+  if (token !== state.contestLoadToken || contest !== state.contest) {
+    showToast('赛事已变更，请重新确认载入。', 'info'); return false;
+  }
   rememberState();
   return true;
 }
@@ -624,7 +633,7 @@ function bindEvents() {
       team[field] = field === 'logo' ? team.originalLogo || null : null;
       team[`${field}Override`] = field !== 'logo'; team[`${field}Source`] = 'manual';
       renderPhotoList(); schedulePersist(); schedulePreview(0);
-      showToast(field === 'logo' ? '已恢复默认队伍 Logo。' : '队伍照片已移除。', 'info');
+      showToast(field === 'logo' ? '已恢复默认队伍标识。' : '队伍照片已移除。', 'info');
     }
   });
   on('photoFileInput', 'change', (event) => handlePhotoFile(event.target.files?.[0]));
@@ -700,7 +709,7 @@ async function fetchJSON(url, { method = 'GET', body = undefined, timeout = 1500
       throw error;
     }
     if (err && err.status !== undefined) throw err;
-    const error = new Error('无法连接 Node API');
+    const error = new Error('无法连接服务');
     error.status = 0;
     error.cause = err;
     throw error;
@@ -721,13 +730,13 @@ function setApiStatus(online) {
 
   if (online) {
     pill.dataset.state = 'online';
-    text.textContent = '服务已连接';
-    pill.title = 'Node API 在线，点击重新检测';
+    text.textContent = '已连接';
+    pill.title = '服务在线，点击重新检测';
     banner.hidden = true;
   } else {
     pill.dataset.state = 'offline';
     text.textContent = '连接已断开';
-    pill.title = 'Node API 离线，点击重试连接';
+    pill.title = '服务离线，点击重试连接';
     banner.hidden = false;
   }
 }
@@ -757,7 +766,7 @@ async function handleFile(file) {
     return;
   }
 
-  if (!confirmReplacement('导入事件流')) return;
+  if (!await confirmReplacement('导入事件流')) return;
   const token = ++state.contestLoadToken;
   state.busy.parse = true;
   setFileStatus({
@@ -862,7 +871,7 @@ async function fetchRemote() {
     return;
   }
 
-  if (!confirmReplacement('载入远程赛事')) return;
+  if (!await confirmReplacement('载入远程赛事')) return;
   const token = ++state.contestLoadToken;
   state.busy.remote = true;
   setBusy($('fetchRemoteBtn'), true, '获取中…');
@@ -893,7 +902,7 @@ async function fetchRemote() {
       showToast('远程抓取暂不支持，请改用上传文件。', 'info');
     } else if (err.status === 0) {
       setApiStatus(false);
-      showInlineNote('无法连接 Node API，请确认服务已启动。', 'error');
+      showInlineNote('无法连接服务，请确认服务已启动。', 'error');
     } else {
       showInlineNote(`获取失败：${err.message}`, 'error');
       showToast(`远程赛事获取失败：${err.message}`, 'error');
@@ -961,7 +970,7 @@ function renderPageContest() {
   const el = $('pageContest');
   if (!el) return;
   const name = state.contest?.name || state.contest?.formalName;
-  el.textContent = name ? `当前赛事：${name}` : '当前赛事：尚未载入';
+  el.textContent = name || '尚未导入赛事';
 }
 
 function updateSourceBadge() {
@@ -1191,7 +1200,7 @@ function renderLogoSummary() {
     badge.title = '尚未载入赛事';
     if (button) button.disabled = true;
     if (hint) {
-      hint.textContent = '载入赛事后，可为每个组织上传 Logo；上传后该组织的所有队伍统一使用。';
+      hint.textContent = '导入赛事后可替换学校校徽。';
     }
     return;
   }
@@ -1199,7 +1208,7 @@ function renderLogoSummary() {
     badge.textContent = '—';
     badge.title = '当前赛事没有组织数据';
     if (button) button.disabled = true;
-    if (hint) hint.textContent = '当前赛事没有组织数据，无法按组织管理 Logo。';
+    if (hint) hint.textContent = '当前赛事没有学校 / 组织记录。';
     return;
   }
 
@@ -1212,11 +1221,11 @@ function renderLogoSummary() {
   const defaults = rows.filter((row) => orgPreviewLogo(row) === DEFAULT_SCHOOL_LOGO).length;
 
   badge.textContent = `自动匹配 ${automatic} / ${rows.length}`;
-  badge.title = `Hydro 校徽 ${automatic} 个；ICPC 默认 ${defaults} 个；手工覆盖 ${overridden} 个`;
+  badge.title = `Hydro 校徽 ${automatic} 个；ICPC 默认 ${defaults} 个；手动替换 ${overridden} 个`;
   if (button) button.disabled = false;
   if (hint) {
-    hint.textContent = `已自动匹配 ${automatic} 个学校 Logo，${defaults} 个使用 ICPC 默认 Logo。` +
-      (overridden ? `手工覆盖 ${overridden} 个组织、${overriddenTeams} 支队伍，可随时恢复。` : '可为组织上传图片，替换自动匹配结果。');
+    hint.textContent = `自动匹配 ${automatic} 个，ICPC 默认 ${defaults} 个。` +
+      (overridden ? `手动替换 ${overridden} 个，涉及 ${overriddenTeams} 支队伍。` : '上传图片可替换校徽。');
   }
 }
 
@@ -1233,7 +1242,7 @@ function resetLogoManager() {
 
 function openLogoManager() {
   if (!state.contest) {
-    showToast('请先载入赛事数据，再管理组织 Logo。', 'info');
+    showToast('请先载入赛事数据，再管理学校 / 组织校徽。', 'info');
     return;
   }
   if (!getOrganizationRows().length) {
@@ -1330,8 +1339,8 @@ function renderLogoList() {
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'icon-btn';
-      remove.title = '移除上传的 Logo，回退到队伍自己的 Logo';
-      remove.setAttribute('aria-label', `移除${row.name}的组织 Logo`);
+      remove.title = '移除上传的 Logo，恢复原始或自动匹配的校徽';
+      remove.setAttribute('aria-label', `移除${row.name}的学校 / 组织校徽`);
       remove.setAttribute('data-logo-action', 'remove');
       remove.setAttribute('data-org-id', row.id);
       remove.innerHTML = iconMarkup('i-trash');
@@ -1380,7 +1389,7 @@ async function handleLogoFile(file) {
     renderSummary();
     schedulePersist();
     schedulePreview(0);
-    showToast(`已更新「${row?.name || org.name}」的组织 Logo`, 'success');
+    showToast(`已更新「${row?.name || org.name}」的学校 / 组织校徽`, 'success');
   } catch (err) {
     showToast(`Logo 处理失败：${err.message}`, 'error');
   } finally {
@@ -1405,8 +1414,8 @@ function removeOrganizationLogo(orgId) {
   schedulePreview(0);
   showToast(
     original
-      ? `已恢复「${row?.name || org.name}」导入时的组织 Logo`
-      : `已移除「${row?.name || org.name}」的组织 Logo，队伍将使用自己的 Logo`,
+      ? `已恢复「${row?.name || org.name}」导入时的学校 / 组织校徽`
+      : `已移除「${row?.name || org.name}」的学校 / 组织校徽，队伍将使用自己的 Logo`,
     'info',
   );
 }
@@ -1442,26 +1451,26 @@ function renderPhotoList() {
     const logoBox = document.createElement('div'); logoBox.className = 'team-media-logo';
     const logo = teamLogoUrl(team, organizations.get(String(team.organizationId)));
     const logoImage = document.createElement('img');
-    logoImage.alt = `${team.displayName || team.name}的队伍 Logo`; logoImage.loading = 'lazy';
+    logoImage.alt = `${team.displayName || team.name}的队伍标识`; logoImage.loading = 'lazy';
     setLogoImage(logoImage, isSafeLogo(logo) ? logo : DEFAULT_SCHOOL_LOGO); logoBox.append(logoImage);
     const info = document.createElement('div'); info.className = 'photo-info';
     const title = document.createElement('strong'); title.textContent = team.displayName || team.name || team.id;
     const detail = document.createElement('p'); detail.textContent = `ID ${team.id} · ${organizations.get(String(team.organizationId))?.name || '未设置组织'}`;
     info.append(title, detail);
     const actions = document.createElement('div'); actions.className = 'photo-actions';
-    for (const [action, label] of [['upload-logo', team.logoOverride ? '替换队伍 Logo' : '上传队伍 Logo'], ...(team.logoOverride ? [['remove-logo', '恢复默认 Logo']] : []), ['upload', team.photo ? '替换照片' : '上传照片'], ...(team.photo ? [['remove', '移除照片']] : [])]) {
+    for (const [action, label] of [['upload-logo', team.logoOverride ? '替换队伍标识' : '上传队伍标识'], ...(team.logoOverride ? [['remove-logo', '恢复默认 Logo']] : []), ['upload', team.photo ? '替换照片' : '上传照片'], ...(team.photo ? [['remove', '移除照片']] : [])]) {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-sm btn-secondary'; button.textContent = label;
       button.dataset.photoAction = action; button.dataset.teamId = String(team.id); button.setAttribute('aria-label', `${label}：${team.displayName || team.name || team.id}`); actions.append(button);
     }
     row.append(logoBox, picture, info, actions); list.append(row);
   }
-  if (!rows.length) list.textContent = all.length ? '没有匹配的队伍。' : '请先在数据源页载入比赛。';
+  if (!rows.length) list.textContent = all.length ? '没有匹配的队伍。' : '请先在赛事导入页载入比赛。';
 }
 
 async function handlePhotoFile(file) {
   const id = photoTeamId; photoTeamId = null;
   const field = teamMediaField;
-  const label = field === 'logo' ? '队伍 Logo' : '队伍照片';
+  const label = field === 'logo' ? '队伍标识' : '队伍照片';
   const uploadKey = `${id}:${field}`;
   const contest = state.contest;
   const team = contest?.teams.find((item) => String(item.id) === id);
@@ -1642,8 +1651,8 @@ function schedulePreview(delay = PREVIEW_DEBOUNCE_MS) {
     setPreviewError(
       online ? '演示数据不可用' : '服务未连接',
       online
-        ? '无法从 Node API 获取演示赛事，请上传事件流文件后重试。'
-        : '无法连接 Node API。启动服务后将自动恢复预览。'
+        ? '无法从服务获取演示赛事，请上传事件流文件后重试。'
+        : '无法连接服务。启动服务后将自动恢复预览。'
     );
     return;
   }
@@ -1656,7 +1665,7 @@ function schedulePreview(delay = PREVIEW_DEBOUNCE_MS) {
   if (state.apiOnline === false) {
     setPreviewError(
       '服务未连接',
-      '无法连接 Node API。启动服务后点击「重试」生成预览。'
+      '无法连接服务。启动服务后点击「重试」生成预览。'
     );
     return;
   }
@@ -1684,7 +1693,7 @@ async function buildPreview({ manual = false } = {}) {
     return;
   }
   if (state.apiOnline === false && !manual) {
-    setPreviewError('服务未连接', '无法连接 Node API。启动服务后点击「重试」生成预览。');
+    setPreviewError('服务未连接', '无法连接服务。启动服务后点击「重试」生成预览。');
     return;
   }
 
@@ -1720,7 +1729,7 @@ async function buildPreview({ manual = false } = {}) {
     setPreviewError(
       err.status === 0 ? '服务未连接' : '预览生成失败',
       err.status === 0
-        ? '无法连接 Node API。启动服务后点击「重试」生成预览。'
+        ? '无法连接服务。启动服务后点击「重试」生成预览。'
         : err.message || '请检查赛事数据与服务端日志。'
     );
     if (manual) showToast(`预览生成失败：${err.message}`, 'error');
@@ -1771,8 +1780,8 @@ async function manualPreview() {
   if (state.apiOnline === false) {
     const ok = await loadConfigs({ silent: true });
     if (!ok && state.apiOnline === false) {
-      showToast('Node API 离线，无法生成预览。', 'error');
-      setPreviewError('服务未连接', '无法连接 Node API。启动服务后点击「重试」生成预览。');
+      showToast('服务离线，无法生成预览。', 'error');
+      setPreviewError('服务未连接', '无法连接服务。启动服务后点击「重试」生成预览。');
       return;
     }
   }
@@ -1800,6 +1809,7 @@ function setPreviewState(kind, extra = {}) {
   const statusText = $('previewStatusText');
   const hint = $('previewHint');
 
+  $('previewOverlay').hidden = kind === 'ready';
   $('previewEmpty').hidden = true;
   $('previewLoading').hidden = true;
   $('previewError').hidden = true;
@@ -1808,7 +1818,7 @@ function setPreviewState(kind, extra = {}) {
     wrap.classList.add('is-ready');
     status.dataset.state = 'ready';
     statusText.textContent = '预览就绪';
-    hint.textContent = '预览就绪 · 右键 / → 下一步，左键 / ← 上一步';
+    hint.textContent = '预览就绪';
     return;
   }
 
@@ -1828,7 +1838,7 @@ function setPreviewState(kind, extra = {}) {
     statusText.textContent = extra.statusText || '预览失败';
     $('previewErrorTitle').textContent = extra.title || '预览生成失败';
     $('previewErrorDetail').textContent =
-      extra.detail || '请检查赛事数据、Node 服务或稍后重试。';
+      extra.detail || '请检查赛事数据、服务或稍后重试。';
     hint.textContent = extra.hint || '启动服务后点击重试';
     return;
   }
@@ -1866,7 +1876,7 @@ async function loadConfigs({ silent = false, keepLoading = false } = {}) {
     state.configs = [];
     if (err.status == null || err.status === 0) {
       setApiStatus(false);
-      renderConfigs({ error: '无法连接 Node API，配置列表不可用。' });
+      renderConfigs({ error: '无法连接服务，配置列表不可用。' });
     } else {
       // Reached the server, but the endpoint failed — keep the online status.
       setApiStatus(true);
@@ -1938,19 +1948,19 @@ function renderConfigs({ loading = false, error = null } = {}) {
 
     const loadButton = document.createElement('button');
     loadButton.type = 'button';
-    loadButton.className = 'icon-btn';
+    loadButton.className = 'btn btn-sm btn-secondary';
     loadButton.dataset.action = 'load';
     loadButton.title = '载入此配置';
     loadButton.setAttribute('aria-label', `载入配置 ${name}`);
-    loadButton.innerHTML = iconMarkup('i-download');
+    loadButton.innerHTML = `${iconMarkup('i-download')}<span>载入</span>`;
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
-    deleteButton.className = 'icon-btn danger';
+    deleteButton.className = 'btn btn-sm btn-danger';
     deleteButton.dataset.action = 'delete';
     deleteButton.title = '删除此配置';
     deleteButton.setAttribute('aria-label', `删除配置 ${name}`);
-    deleteButton.innerHTML = iconMarkup('i-trash');
+    deleteButton.innerHTML = `${iconMarkup('i-trash')}<span>删除</span>`;
 
     actions.appendChild(loadButton);
     actions.appendChild(deleteButton);
@@ -1998,7 +2008,7 @@ function onConfigListClick(event) {
 }
 
 async function applyPreset(record) {
-  if (!confirmReplacement('载入配置预设')) return;
+  if (!await confirmReplacement('载入已保存配置')) return;
   const token = ++state.contestLoadToken;
   let full = record;
   if (record && record.hasContest && !isContestLike(record.contest)) {
@@ -2021,7 +2031,7 @@ async function applyPreset(record) {
     applyContest(full.contest, {
       stats: full.stats,
       source: 'saved',
-      sourceName: full.name || record.name || '配置预设',
+      sourceName: full.name || record.name || '已保存配置',
     });
     showToast(`已载入配置「${full.name || '未命名配置'}」及其赛事数据。`, 'success');
   } else {
@@ -2175,7 +2185,7 @@ async function prepareMedia() {
     });
     $('offlineMediaReport').textContent = token !== state.contestLoadToken ? '赛事已切换，请重新检查当前赛事素材。' : report.failed
       ? `已缓存 ${report.cached} / ${report.total} 张；${report.failed} 张未就绪。${report.reasons.join('；')}。可检查网络或手动上传后重新检查。直接开场时，失败的校徽使用 ICPC Logo，照片使用赛事 Logo。`
-      : `素材已就绪：${report.cached} 张图片已保存在本地。开场不依赖外网；主持与大屏仍需连接 Node 服务。`;
+      : `已缓存 ${report.cached} 张图片，主持端与观众屏仍需连接服务。`;
   } catch (err) { $('offlineMediaReport').textContent = `检查失败：${err.message}`; }
   finally { button.disabled = false; }
 }
@@ -2192,8 +2202,8 @@ async function startResolve() {
   if (state.apiOnline === false) {
     const ok = await loadConfigs({ silent: true });
     if (!ok && state.apiOnline === false) {
-      showToast('Node API 离线，无法开始滚榜。', 'error');
-      setPreviewError('服务未连接', '无法连接 Node API。启动服务后点击「重试」生成预览。');
+      showToast('服务离线，无法开始滚榜。', 'error');
+      setPreviewError('服务未连接', '无法连接服务。启动服务后点击「重试」生成预览。');
       return;
     }
   }
@@ -2208,7 +2218,7 @@ async function startResolve() {
     const prepared = await prepareOfflineContest(launchContest, {
       onProgress: (done, total) => setBusy($('startBtn'), true, `准备素材 ${done}/${total}`),
     });
-    setBusy($('startBtn'), true, '保存直播…');
+    setBusy($('startBtn'), true, '正在保存…');
     const result = await fetchJSON(API.game, {
       method: 'POST',
       body: { contest: prepared.contest, options: launchOptions, publish: true, mediaReport: prepared.report },
@@ -2259,17 +2269,17 @@ async function retryConnection() {
       if (usableContest()) {
         schedulePreview(0);
       }
-      showToast('已连接 Node API。', 'success');
+      showToast('已连接服务。', 'success');
     } else if (state.apiOnline) {
-      showToast('Node API 已连接，但配置列表加载失败。', 'info');
+      showToast('服务 已连接，但配置列表加载失败。', 'info');
       if (state.contest && !state.previewDisabled) {
         schedulePreview(0);
       }
     } else {
       setApiStatus(false);
-      showToast('仍无法连接 Node API，请确认服务已启动。', 'error');
+      showToast('仍无法连接服务，请确认服务已启动。', 'error');
       if (state.contest && !state.previewDisabled) {
-        setPreviewError('服务未连接', '无法连接 Node API。启动服务后点击「重试」生成预览。');
+        setPreviewError('服务未连接', '无法连接服务。启动服务后点击「重试」生成预览。');
       }
     }
   } finally {
