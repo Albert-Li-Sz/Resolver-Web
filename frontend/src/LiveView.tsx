@@ -275,35 +275,35 @@ export function LiveView({
         {scale > 0 && (
           <Provider store={store}>
             <MediaContext.Provider value={context}>
-              {!transparent &&
-                Array.from({ length: count }, (_, i) => {
-                  const source = slots[i].primary,
-                    secondary = slots[i].secondary;
-                  return widget(
-                    "team-" + i,
-                    positions[i],
-                    <TeamView
-                      widgetData={
-                        {
-                          widgetLocationId: positions[i],
-                          settings: {
-                            teamId: scene.teamIds[i],
-                            primary: [{ sourceId: source }],
-                            secondary: secondary
+              {Array.from({ length: count }, (_, i) => {
+                const source = slots[i].primary,
+                  secondary = slots[i].secondary;
+                return widget(
+                  "team-" + i,
+                  positions[i],
+                  <TeamView
+                    widgetData={
+                      {
+                        widgetLocationId: positions[i],
+                        settings: {
+                          teamId: scene.teamIds[i],
+                          primary: transparent ? [] : [{ sourceId: source }],
+                          secondary:
+                            !transparent && secondary
                               ? [{ sourceId: secondary }]
                               : [],
-                            achievement: [],
-                            showTaskStatus:
-                              !!scene.widgets.team && !scene.positions?.team,
-                            showTimeLine: false,
-                            position: variants[i],
-                          },
-                        } as any
-                      }
-                      transitionState="entered"
-                    />,
-                  );
-                })}
+                          achievement: [],
+                          showTaskStatus:
+                            !!scene.widgets.team && !scene.positions?.team,
+                          showTimeLine: false,
+                          position: variants[i],
+                        },
+                      } as any
+                    }
+                    transitionState="entered"
+                  />,
+                );
+              })}
               {scene.widgets.scoreboard &&
                 widget(
                   "scoreboard",
