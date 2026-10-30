@@ -57,6 +57,10 @@ export class PlatformStore {
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }
+    // Earlier platform previews did not persist a workspace for team media.
+    for (const media of this.state.media)
+      if (media.teamId && !media.workspaceId)
+        media.workspaceId = this.state.activeWorkspaceId || "";
     let total = 0;
     for (const w of this.state.workspaces) {
       if (
@@ -258,12 +262,14 @@ export class PlatformStore {
           sceneMediaIds(
             this.state.broadcast.program,
             this.state.media,
+            this.state.activeWorkspaceId,
           ).includes(m.id),
         )
         .map((m) => ({
           id: m.id,
           name: m.name,
           teamId: m.teamId,
+          workspaceId: m.workspaceId,
           role: m.role,
           kind: m.kind,
           fallbackId: m.fallbackId,

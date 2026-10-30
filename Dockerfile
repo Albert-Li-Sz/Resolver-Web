@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY frontend ./frontend
+COPY public/js/broadcast-media.js public/js/broadcast-media.d.ts public/js/event-channel.js public/js/event-channel.d.ts ./public/js/
+COPY public/js/display-cache.js public/js/display-cache.d.ts ./public/js/
 COPY vite.config.ts tsconfig.json ./
 RUN npm run build
 FROM node:24-alpine

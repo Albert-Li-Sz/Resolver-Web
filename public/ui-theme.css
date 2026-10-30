@@ -1,0 +1,23 @@
+/* Ollama-inspired interface tokens. Reference: https://getdesign.md/ollama/design-md */
+:root {
+  --ui-canvas: #fff;
+  --ui-surface: #fff;
+  --ui-soft: #fafafa;
+  --ui-ink: #000;
+  --ui-pressed: #090909;
+  --ui-charcoal: #525252;
+  --ui-body: #737373;
+  --ui-muted: #a3a3a3;
+  --ui-line: #e5e5e5;
+  --ui-line-strong: #d4d4d4;
+  --ui-focus: #3b82f6;
+  --ui-font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --ui-display:
+    ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
+    "PingFang SC", "Segoe UI", sans-serif;
+  --ui-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ui-pill: 9999px;
+  --ui-card: 12px;
+}

@@ -52,12 +52,20 @@ try {
     "PLATFORM.md",
     "PLATFORM-VALIDATION.md",
     "platform-performance.json",
+    "OLLAMA-VALIDATION.md",
+    "ollama-pixel-comparison.json",
+    "ollama-performance.json",
   ]) {
     await copyFile(new URL(`doc/${file}`, root), path.join(temporary, file));
   }
   await cp(
     new URL("doc/images/platform/", root),
     path.join(temporary, "images/platform"),
+    { recursive: true },
+  );
+  await cp(
+    new URL("doc/images/ollama/", root),
+    path.join(temporary, "images/ollama"),
     { recursive: true },
   );
   const image = report.image;

@@ -379,7 +379,7 @@ export async function createPlatform() {
     "/media/sources",
     wrap(async (q, r) => {
       const raw = q.body;
-      const source = await mediaSource(raw);
+      const source = await mediaSource({ ...raw, workspaceId: raw.teamId ? (raw.workspaceId || store.state.activeWorkspaceId) : "" });
       r.status(201).json(
         await store.change(() => {
           if (store.state.media.length >= 1000)
@@ -492,6 +492,7 @@ export async function createPlatform() {
         !sceneMediaIds(
           store.state.broadcast.program,
           store.state.media,
+          store.state.activeWorkspaceId,
         ).includes(q.params.id)
       )
         throw inputError("来源尚未上屏", 403);
@@ -526,6 +527,7 @@ async function mediaSource(raw) {
     id: id(),
     name: text(raw.name) || "媒体来源",
     teamId: text(raw.teamId, 100),
+    workspaceId: text(raw.workspaceId, 100),
     role: ["camera", "desktop", "audio"].includes(raw.role)
       ? raw.role
       : "camera",

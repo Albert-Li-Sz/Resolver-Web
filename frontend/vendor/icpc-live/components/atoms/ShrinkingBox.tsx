@@ -1,0 +1,171 @@
+// @ts-nocheck
+import styled from "styled-components";
+import c from "../../config";
+import React, { useEffect, useRef, useMemo } from "react";
+
+const TextShrinkingWrap = styled.div<{ align: string; fontFamily: string }>`
+    overflow: hidden;
+    display: flex;
+    justify-content: ${(props) => props.align};
+
+    font-family: ${(props) => props.fontFamily};
+    font-kerning: none;
+
+    /* Performance: isolate layout calculations */
+    contain: layout style;
+`;
+
+// Font metrics belong to this renderer/font session, not durable browser state.
+// Display caches can fill the storage quota; measuring text must still work.
+const widths = new Map<string, number>();
+
+let sharedCanvas: HTMLCanvasElement | null = null;
+
+export const getTextWidth = (text: string | number, font: string): number => {
+    const stringText = text + "";
+    const key = stringText + ";" + font;
+    const fontChecker = document.fonts && document.fonts.check(font);
+    const cached = widths.get(key);
+
+    if (cached !== undefined) {
+        return cached;
+    }
+
+    if (!sharedCanvas) {
+        sharedCanvas = document.createElement("canvas");
+    }
+
+    const context = sharedCanvas.getContext("2d");
+    if (!context) {
+        return 0;
+    }
+    context.font = font;
+    context.fontKerning = "none";
+    const metrics = context.measureText(stringText);
+    const result = metrics.width;
+
+    if (fontChecker) {
+        widths.set(key, result);
+        if (widths.size > 5000) widths.delete(widths.keys().next().value);
+    }
+
+    return result;
+};
+
+interface ShrinkingBoxProps {
+    text: string;
+    fontFamily?: string;
+    fontSize?: string;
+    align?: string;
+    className?: string;
+}
+
+export const ShrinkingBox = React.memo(
+    ({
+        text,
+        fontFamily = c.GLOBAL_DEFAULT_FONT_FAMILY,
+        fontSize = c.GLOBAL_DEFAULT_FONT_SIZE,
+        align = "left",
+        className,
+    }: ShrinkingBoxProps) => {
+        const boxRef = useRef<HTMLDivElement>(null);
+        const containerRef = useRef<HTMLDivElement>(null);
+        const widthRef = useRef(0);
+        const textWidthRef = useRef(0);
+
+        const font = useMemo(() => {
+            const weight = c.GLOBAL_DEFAULT_FONT_WEIGHT || "normal";
+            return `${weight} ${fontSize} ${fontFamily}`;
+        }, [fontFamily, fontSize]);
+
+        const textWidth = useMemo(() => {
+            return getTextWidth(text, font);
+        }, [text, font]);
+
+        useEffect(() => {
+            textWidthRef.current = textWidth;
+        }, [textWidth]);
+
+        const scaleFactor = 1;
+
+        useEffect(() => {
+            const cellRef = boxRef.current;
+            const contentRef = containerRef.current;
+            if (!cellRef || !contentRef) return;
+
+            const updateTransform = (width: number) => {
+                if (
+                    width === widthRef.current &&
+                    textWidthRef.current === textWidth
+                )
+                    return;
+                widthRef.current = width;
+                const newScaleFactor = Math.min(
+                    1,
+                    width / textWidthRef.current,
+                );
+                contentRef.style.transform = `scaleX(${newScaleFactor})`;
+            };
+
+            updateTransform(cellRef.offsetWidth);
+
+            const observer = new ResizeObserver((entries) => {
+                requestAnimationFrame(() => {
+                    for (const entry of entries) {
+                        if (entry.target === cellRef) {
+                            updateTransform(entry.contentRect.width);
+                        }
+                    }
+                });
+            });
+
+            observer.observe(cellRef);
+
+            return () => {
+                observer.disconnect();
+            };
+        }, [textWidth]);
+
+        return (
+            <TextShrinkingWrap
+                ref={boxRef}
+                align={align}
+                className={className}
+                fontFamily={fontFamily}
+            >
+                <TextShrinkingContainer
+                    ref={containerRef}
+                    align={align}
+                    scaleFactor={scaleFactor}
+                >
+                    {text}
+                </TextShrinkingContainer>
+            </TextShrinkingWrap>
+        );
+    },
+    (prevProps, nextProps) => {
+        return (
+            prevProps.text === nextProps.text &&
+            prevProps.fontFamily === nextProps.fontFamily &&
+            prevProps.fontSize === nextProps.fontSize &&
+            prevProps.align === nextProps.align &&
+            prevProps.className === nextProps.className
+        );
+    },
+);
+
+const TextShrinkingContainer = styled.div<{
+    align: string;
+    scaleFactor: number;
+}>`
+    position: relative;
+    transform-origin: ${({ align }) => align};
+
+    color: inherit;
+    text-align: ${({ align }) => align};
+    white-space: nowrap;
+
+    /* Use transform for GPU acceleration */
+    transform: scaleX(${({ scaleFactor }) => scaleFactor});
+    will-change: transform;
+`;

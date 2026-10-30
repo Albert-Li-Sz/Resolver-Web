@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { api } from "./api";
 export function Field({
   label,
@@ -7,11 +7,30 @@ export function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  const id = useId();
+  let linked = false;
+  const linkControl = (nodes: React.ReactNode): React.ReactNode =>
+    React.Children.map(nodes, (child) => {
+      if (!React.isValidElement<Record<string, any>>(child)) return child;
+      if (
+        !linked &&
+        ["input", "select", "textarea"].includes(String(child.type))
+      ) {
+        linked = true;
+        return React.cloneElement(child, { id });
+      }
+      return child.props.children
+        ? React.cloneElement(child, {
+            children: linkControl(child.props.children),
+          })
+        : child;
+    });
+  const controls = linkControl(children);
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      {controls}
+    </div>
   );
 }
 export function Button({

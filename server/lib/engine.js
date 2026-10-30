@@ -544,6 +544,7 @@ export function parseEventFeed(text, { scoringMode = 'auto' } = {}) {
 
   const teams = [...store.team.values()].map((t) => ({
     id: String(t.id),
+    label: t.label == null ? String(t.id) : String(t.label),
     name: t.name ?? t.display_name ?? String(t.id),
     displayName: t.display_name ?? t.displayName ?? t.name ?? String(t.id),
     organizationId: t.organization_id == null ? null : String(t.organization_id),
@@ -592,6 +593,7 @@ export function parseEventFeed(text, { scoringMode = 'auto' } = {}) {
     freezeDurationMs,
     penaltyMinutes: toPenaltyMinutes(contestData.penalty_time ?? contestData.penaltyTime, 20),
     logo: feedAsset(contestData.logo),
+    banner: feedAsset(contestData.banner),
     problems: problems.map(({ ordinal, ...p }) => p),
     organizations,
     teams,
@@ -688,6 +690,7 @@ export function normalizeContest(input) {
     const country = t.country ?? org?.country ?? null;
     return {
       id,
+      label: t.label == null ? id : String(t.label),
       name,
       displayName,
       unrank: toBool(t.unrank),
@@ -750,8 +753,8 @@ export function normalizeContest(input) {
   // Media can be inherited by thousands of teams. Bound that expansion before
   // building cells, step streams or a potentially enormous JSON string.
   let estimated = teams.length * (problems.length * 160 + 1200);
-  for (const record of [...teams, ...organizations, { logo: input.logo }]) {
-    for (const field of ['logo', 'photo']) estimated += typeof record[field] === 'string' ? Buffer.byteLength(record[field]) : 0;
+  for (const record of [...teams, ...organizations, { logo: input.logo, banner: input.banner }]) {
+    for (const field of ['logo', 'photo', 'banner']) estimated += typeof record[field] === 'string' ? Buffer.byteLength(record[field]) : 0;
   }
   if (estimated > LIMITS.gameBytes) throw inputError('比赛单元格与素材总量过大，请使用上传图片的 /media/ 引用', 413);
   const startMs = parseTimestamp(startTime);
@@ -799,6 +802,7 @@ export function normalizeContest(input) {
     freezeDurationMs,
     penaltyMinutes: toPenaltyMinutes(input.penaltyMinutes ?? input.penalty_time, 20),
     logo: normalizeLogo(input.logo),
+    banner: normalizeLogo(input.banner),
     problems,
     organizations,
     teams,

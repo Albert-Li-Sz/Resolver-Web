@@ -1,0 +1,55 @@
+{
+  "source": "ICPC Tools v2.6.1331 official presentations.jar AbstractScoreboardPresentation and TitledPresentation",
+  "layouts": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "problems": 13,
+      "titleHeight": 36,
+      "headerHeight": 21,
+      "rowHeight": 85.25,
+      "cubeWidth": 117,
+      "cubeHeight": 29
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "problems": 13,
+      "titleHeight": 48,
+      "headerHeight": 28,
+      "rowHeight": 113.666664,
+      "cubeWidth": 159,
+      "cubeHeight": 40
+    },
+    {
+      "width": 3840,
+      "height": 2160,
+      "problems": 13,
+      "titleHeight": 72,
+      "headerHeight": 43,
+      "rowHeight": 170.41667,
+      "cubeWidth": 244,
+      "cubeHeight": 63
+    },
+    {
+      "width": 5760,
+      "height": 1080,
+      "problems": 13,
+      "titleHeight": 36,
+      "headerHeight": 21,
+      "rowHeight": 85.25,
+      "cubeWidth": 413,
+      "cubeHeight": 29
+    },
+    {
+      "width": 1080,
+      "height": 1920,
+      "problems": 13,
+      "titleHeight": 64,
+      "headerHeight": 38,
+      "rowHeight": 151.5,
+      "cubeWidth": 37,
+      "cubeHeight": 55
+    }
+  ]
+}

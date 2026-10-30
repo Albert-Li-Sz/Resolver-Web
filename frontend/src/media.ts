@@ -20,6 +20,7 @@ export class MediaReader {
   private watchdog: ReturnType<typeof setInterval>;
   private lastTime = -1;
   private lastFrame = 0;
+  private connectStarted = Date.now();
   get ready() {
     return this.video.readyState >= 2 && Date.now() - this.lastFrame < 6000;
   }
@@ -46,7 +47,12 @@ export class MediaReader {
       ) {
         this.lastTime = this.video.currentTime;
         this.lastFrame = Date.now();
-      } else if (this.lastFrame && Date.now() - this.lastFrame > 6000)
+      } else if (
+        (this.lastFrame && Date.now() - this.lastFrame > 6000) ||
+        (!this.lastFrame &&
+          !this.retry &&
+          Date.now() - this.connectStarted > 15000)
+      )
         this.reconnect();
     }, 1000);
   }
@@ -95,6 +101,7 @@ export class MediaReader {
     }, 2500);
   }
   private async connect() {
+    this.connectStarted = Date.now();
     const generation = ++this.generation;
     try {
       const info = await this.authorize();

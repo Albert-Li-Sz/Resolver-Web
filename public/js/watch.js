@@ -1,3 +1,4 @@
+import { sharedEventSource } from "./event-channel.js";
 import { ResolverView } from './render/resolver-view.js';
 import { readJSONResponse } from './http.js';
 
@@ -96,7 +97,7 @@ function connect() {
   if (terminal) return;
   clearTimeout(reconnectTimer); reconnectTimer = null;
   source?.close();
-  source = new EventSource(`/api/watch/${encodeURIComponent(id)}/events`);
+  source = typeof SharedWorker === "function" ? sharedEventSource(`/api/watch/${encodeURIComponent(id)}/events`) : new EventSource(`/api/watch/${encodeURIComponent(id)}/events`);
   const stream = source;
   source.onopen = () => {
     if (source !== stream) return;

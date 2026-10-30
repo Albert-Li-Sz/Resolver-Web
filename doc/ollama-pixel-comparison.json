@@ -1,0 +1,104 @@
+{
+  "1080": {
+    "leaders": {
+      "meanAbsoluteChannelDifference": 6.489,
+      "whitePixelsBeyond3pxPercent": 0.832
+    },
+    "clock": {
+      "meanAbsoluteChannelDifference": 0.097,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "countdown": {
+      "meanAbsoluteChannelDifference": 0.101,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "message": {
+      "meanAbsoluteChannelDifference": 1.246,
+      "whitePixelsBeyond3pxPercent": 0.124
+    },
+    "first-solves": {
+      "meanAbsoluteChannelDifference": 4.017,
+      "whitePixelsBeyond3pxPercent": 0.986
+    },
+    "queue": {
+      "meanAbsoluteChannelDifference": 0.311,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "calibration": {
+      "meanAbsoluteChannelDifference": 0.412,
+      "whitePixelsBeyond3pxPercent": 0.618
+    },
+    "scoreboard": {
+      "meanAbsoluteChannelDifference": 6.558,
+      "whitePixelsBeyond3pxPercent": 0.545
+    }
+  },
+  "1440": {
+    "leaders": {
+      "meanAbsoluteChannelDifference": 4.706,
+      "whitePixelsBeyond3pxPercent": 0.131
+    },
+    "clock": {
+      "meanAbsoluteChannelDifference": 0.076,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "countdown": {
+      "meanAbsoluteChannelDifference": 0.077,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "message": {
+      "meanAbsoluteChannelDifference": 0.574,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "first-solves": {
+      "meanAbsoluteChannelDifference": 1.819,
+      "whitePixelsBeyond3pxPercent": 0.002
+    },
+    "queue": {
+      "meanAbsoluteChannelDifference": 0.28,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "calibration": {
+      "meanAbsoluteChannelDifference": 0.232,
+      "whitePixelsBeyond3pxPercent": 0.473
+    },
+    "scoreboard": {
+      "meanAbsoluteChannelDifference": 4.844,
+      "whitePixelsBeyond3pxPercent": 0.133
+    }
+  },
+  "2160": {
+    "leaders": {
+      "meanAbsoluteChannelDifference": 4.032,
+      "whitePixelsBeyond3pxPercent": 0.151
+    },
+    "clock": {
+      "meanAbsoluteChannelDifference": 0.043,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "countdown": {
+      "meanAbsoluteChannelDifference": 0.045,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "message": {
+      "meanAbsoluteChannelDifference": 0.803,
+      "whitePixelsBeyond3pxPercent": 0.264
+    },
+    "first-solves": {
+      "meanAbsoluteChannelDifference": 1.017,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "queue": {
+      "meanAbsoluteChannelDifference": 0.183,
+      "whitePixelsBeyond3pxPercent": 0.0
+    },
+    "calibration": {
+      "meanAbsoluteChannelDifference": 0.103,
+      "whitePixelsBeyond3pxPercent": 0.322
+    },
+    "scoreboard": {
+      "meanAbsoluteChannelDifference": 3.899,
+      "whitePixelsBeyond3pxPercent": 0.116
+    }
+  }
+}

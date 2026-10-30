@@ -11,6 +11,10 @@ import {
 } from "./types";
 import { Field, Button, type Run } from "./ui";
 import { subscribeDisplay } from "./display-channel";
+import {
+  readDisplayCache,
+  writeDisplayCache,
+} from "../../public/js/display-cache.js";
 export function Display() {
   const [identity, setIdentity] = useState<AnyRecord | null>(() => {
     const screen = new URLSearchParams(location.search).get("screen");
@@ -69,35 +73,83 @@ export function Display() {
     let cached = safeRead(`icpc.display.cache.${identity.id}`);
     if (cached) setDevice(cached);
     let active = true;
+    let received = false;
+    void readDisplayCache(identity.id).then((cached) => {
+      if (active && !received && cached) setDevice(cached);
+    });
+    let pendingCache: AnyRecord | null = null,
+      cacheTimer: ReturnType<typeof setTimeout> | undefined,
+      persisting = false;
+    const persist = async () => {
+      cacheTimer = undefined;
+      if (persisting || !pendingCache) return;
+      const next = pendingCache;
+      pendingCache = null;
+      persisting = true;
+      const saved = await writeDisplayCache(identity.id, next);
+      if (saved) {
+        try {
+          localStorage.removeItem(`icpc.display.cache.${identity.id}`);
+        } catch {
+          /* Storage may be disabled. */
+        }
+      } else safeWrite(`icpc.display.cache.${identity.id}`, next);
+      persisting = false;
+      if (pendingCache) cacheTimer = setTimeout(() => void persist(), 100);
+    };
     const stop = subscribeDisplay(
       { id: identity.id, token: identity.token },
       (v) => {
         if (!active) return;
+        received = true;
         setDevice(v);
-        safeWrite(`icpc.display.cache.${identity.id}`, v);
+        pendingCache = v;
+        if (!cacheTimer && !persisting)
+          cacheTimer = setTimeout(() => void persist(), 100);
         setError("");
       },
       setOnline,
       setError,
     );
-    const beat = async () => {
-      const started = Date.now();
+    let capturing = false,
+      beating = false,
+      thumbnail: string | undefined;
+    const capture = async () => {
+      if (capturing) return;
+      capturing = true;
       try {
+        const next = await handle.current?.capture();
+        if (active && next) thumbnail = next;
+      } catch {
+        /* A screenshot must never interrupt heartbeats. */
+      } finally {
+        capturing = false;
+      }
+    };
+    const beat = async () => {
+      if (beating || !active) return;
+      beating = true;
+      void capture();
+      try {
+        const started = Date.now();
         const v = await api(
           `/displays/${identity.id}/heartbeat`,
           {
             revision: applied.current,
-            thumbnail: handle.current?.capture() || undefined,
+            thumbnail,
             clockOffset,
           },
           "POST",
           headers,
         );
         const offset = v.serverTime - (started + Date.now()) / 2;
+        if (!active) return;
         setClockOffset(offset);
         safeWrite(`icpc.display.clock.${identity.id}`, offset);
       } catch (e) {
-        setError((e as Error).message);
+        if (active) setError((e as Error).message);
+      } finally {
+        beating = false;
       }
     };
     void beat();
@@ -106,6 +158,8 @@ export function Display() {
       active = false;
       stop();
       clearInterval(timer);
+      clearTimeout(cacheTimer);
+      if (pendingCache) void persist();
     };
   }, [identity?.id]);
   const update = (patch: AnyRecord) =>

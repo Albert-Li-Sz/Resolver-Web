@@ -64,6 +64,17 @@ test("deployment package includes both pinned images, gateway configuration, gui
     (await readFile(path.join(unpack, "images/platform/home.jpg"))).length >
       1000,
   );
+  for (const file of [
+    "OLLAMA-VALIDATION.md",
+    "ollama-pixel-comparison.json",
+    "ollama-performance.json",
+    "images/ollama/home-browser.jpg",
+  ])
+    assert.deepEqual(
+      await readFile(path.join(unpack, file)),
+      await readFile(new URL(`../doc/${file}`, import.meta.url)),
+      file,
+    );
   for (const line of (await readFile(path.join(out, "SHA256SUMS"), "utf8"))
     .trim()
     .split("\n")) {

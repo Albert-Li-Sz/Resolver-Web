@@ -1,3 +1,4 @@
+import { subscribeEvents } from "../../public/js/event-channel.js";
 export async function api(
   path: string,
   body?: unknown,
@@ -24,56 +25,17 @@ export function subscribe(
   status?: (online: boolean) => void,
   unauthorized?: () => void,
 ) {
-  const controller = new AbortController();
-  let reconnect: ReturnType<typeof setTimeout> | undefined;
-  async function connect() {
-    try {
-      const r = await fetch(`/api${path}`, {
-        headers,
-        signal: controller.signal,
-      });
-      if (!r.ok) {
-        if (r.status === 401 || r.status === 403) {
-          unauthorized?.();
-          status?.(false);
-          return;
-        }
-        throw Error();
-      }
-      status?.(true);
-      const reader = r.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      try {
-        while (!controller.signal.aborted) {
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          buffer += decoder.decode(chunk.value, { stream: true });
-          let end;
-          while ((end = buffer.indexOf("\n\n")) >= 0) {
-            const event = buffer.slice(0, end);
-            buffer = buffer.slice(end + 2);
-            const data = event.split("\n").find((x) => x.startsWith("data: "));
-            if (data) receive(JSON.parse(data.slice(6)));
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-    } catch {
-      /* Reconnect uses an authoritative snapshot. */
-    }
-    if (!controller.signal.aborted) {
-      status?.(false);
-      reconnect = setTimeout(connect, 1500);
-    }
-  }
-  void connect();
-  return () => {
-    controller.abort();
-    clearTimeout(reconnect);
-  };
+  return subscribeEvents(
+    `/api${path}`,
+    headers,
+    (value, type) => {
+      if (type === "state") receive(value);
+    },
+    status,
+    unauthorized,
+  );
 }
+
 export function safeRead(key: string) {
   try {
     return JSON.parse(localStorage.getItem(key) || "null");

@@ -20,7 +20,7 @@ come from the Hydro Contest Team School Logo Registry at
 https://avatar.hydrooj.com/. School logos are loaded from that service and remain
 the property of their respective institutions; they are not bundled here.
 
-DM Sans, used by the configuration interface, is Copyright 2014 The DM Sans
+The previously bundled DM Sans font is Copyright 2014 The DM Sans
 Project Authors. Its SIL Open Font License 1.1 is included in
 `public/assets/font/DM-Sans-OFL.txt`. Upstream:
 https://github.com/google/fonts/blob/main/ofl/dmsans/OFL.txt
@@ -30,8 +30,17 @@ Express and its dependencies retain the licenses included in their npm packages.
 The platform interface uses React and React DOM (MIT), Vite and TypeScript as
 build tools (MIT and Apache-2.0 respectively), and hls.js (Apache-2.0). Their
 license files are supplied by the corresponding npm packages. Live-v3
-(https://github.com/icpc/live-v3, MIT) is a workflow reference; the JVM service
+(https://github.com/icpc/live-v3, MIT), commit
+`200c82f81ffdea91ffec9cc17b314ffc72436a0f`, supplies the original Live
+overlay components in `frontend/vendor/icpc-live`. Its MIT notice is included
+in that directory and `public/licenses/icpc-live.txt`. The vendor manifest
+records source hashes and transport adapters. ICPC Tools v2.6.1331 supplies
+the presentation geometry, digital-clock polygons and Helvetica glyph outlines;
+its notice is also included in `public/licenses/icpc-tools.txt`. The JVM services
 and official client wire protocol are not bundled.
+Bundled frontend dependency notices, including Redux, styled-components,
+Lodash, Luxon and html2canvas, are preserved in
+`public/licenses/frontend-dependencies.txt`.
 
 The optional platform Compose deployment uses MediaMTX
 (https://github.com/bluenviron/mediamtx, MIT) and Alpine's FFmpeg package.

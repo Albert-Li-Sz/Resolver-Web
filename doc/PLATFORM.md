@@ -16,6 +16,8 @@ docker compose --env-file .env -f compose.platform.yaml up -d --build
 
 数据保存在 `resolver-data` 命名卷。升级需保留原 Compose 项目名与命名卷；不要使用 `down -v`。从 v1.3.0 升级时保留管理员密码，并补充 `MEDIA_INTERNAL_KEY`、`MEDIA_PUBLIC_HOST`；发布包的镜像覆盖字段为 `RESOLVER_IMAGE` 和 `MEDIA_WORKER_IMAGE`。已有单服务部署的 Resolver 数据目录可继续使用，新平台数据单独存放在 `data/platform/`。媒体控制接口和 FFmpeg 工作服务只在容器网络内开放，不挂载 Docker socket。
 
+管理界面采用 Ollama 的白色、细边框和圆角控件风格。Live 节目画面使用原版 Live-v3 组件，展示模板按 ICPC Tools v2.6.1331 的字体、坐标与绘制规则实现。
+
 ## Live
 
 1. 打开“赛事接入”，创建工作区或上传 NDJSON。工作区可保存多份赛事，同时连接一个实时赛事。
@@ -24,7 +26,7 @@ docker compose --env-file .env -f compose.platform.yaml up -d --build
 4. 打开“媒体来源”，为队伍填写摄像头、桌面、音频地址，或生成带发布凭据的 RTSP/RTMP/SRT 地址。来源凭据仅在管理端保存。批量导入使用 JSON 数组。
 5. 原始编码无法在浏览器播放时启用兼容转码。正常来源优先转发，浏览器优先 WebRTC，必要时回退 HLS；HLS 延迟通常更高。
 6. 在“赛事素材”设置赛事 Logo、队伍校徽和照片；上传的本机素材与实时事件分开保存。
-7. 在“导播控制”选择单队伍、双队伍或四分屏，调整叠加组件。修改只作用于预览；点击“切换到正式画面”后才上屏。可保存布局预设。
+7. 在“导播控制”选择单队伍、双队伍或四分屏，调整叠加组件。修改只作用于预览；点击“切换到正式画面”后才上屏。可保存布局预设。单队伍与双队对比可自动显示同一队伍的桌面副画面；四分屏只打开四路主画面。
 8. 在“输出设置”复制正式画面或透明叠加链接。OBS 添加“浏览器”来源，设置 1920×1080、2560×1440 或 3840×2160。链接中的只读凭据可重新生成，旧链接随后失效。
 9. 默认保留封榜。仅在允许公开结果后启用“公开解榜”；这一设置不改变已经生成的 Resolver 滚榜进度。
 
@@ -61,4 +63,4 @@ npm test
 
 自动测试涵盖旧 Resolver 回归、公开封榜过滤、事件去重/重判/删除、来源切换竞争、身份权限、配对过期、持久化、节目同步及旧版本路由。现场验收还需记录测试硬件，检查 10 屏及 4 路 1080p、OBS 接入、网络断开与各服务重启。
 
-本次本地验收结果、硬件和测量边界见 [PLATFORM-VALIDATION.md](PLATFORM-VALIDATION.md)。旧的《使用指南》PDF 仅介绍 Resolver v1.3.0，四模块操作以本指南为准。
+新版 UI 与输出的验收结果见 [OLLAMA-VALIDATION.md](OLLAMA-VALIDATION.md)，此前平台基线见 [PLATFORM-VALIDATION.md](PLATFORM-VALIDATION.md)。旧的《使用指南》PDF 仅介绍 Resolver v1.3.0，四模块操作以本指南为准。

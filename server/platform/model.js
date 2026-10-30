@@ -71,8 +71,8 @@ export function scene(raw = {}) {
       Number.isFinite(p.y)
     )
       s.positions[k] = {
-        x: Math.max(0, Math.min(90, p.x)),
-        y: Math.max(0, Math.min(90, p.y)),
+        x: Math.max(0, Math.min(100, p.x)),
+        y: Math.max(0, Math.min(100, p.y)),
       };
   return s;
 }
@@ -135,13 +135,17 @@ export function publicContest(input, unlocked = false) {
     ]),
   );
   const firstSolves = [];
+  const sourceOrder = new Map(c.submissions.map((s, i) => [s.id, i]));
   const solved = new Set();
   for (const submission of [...c.submissions].sort(
     (a, b) => a.contestTime - b.contestTime,
   )) {
     if (submission.status === "solved" && !solved.has(submission.problemId)) {
       solved.add(submission.problemId);
-      firstSolves.push(submission);
+      firstSolves.push({
+        ...submission,
+        sourceOrder: sourceOrder.get(submission.id),
+      });
     }
   }
   c.submissions = c.submissions.slice(-100);
@@ -154,18 +158,7 @@ export function publicContest(input, unlocked = false) {
   };
 }
 
-export function sceneMediaIds(scene, media) {
-  const count = scene.layout === "quad" ? 4 : scene.layout === "dual" ? 2 : 1;
-  return Array.from(
-    { length: count },
-    (_, i) =>
-      scene.mediaIds[i] ||
-      media.find((m) => m.teamId === scene.teamIds[i] && m.role === "camera")
-        ?.id,
-  )
-    .concat(scene.audioMediaId || [])
-    .filter(Boolean);
-}
+export { sceneMediaIds } from "../../public/js/broadcast-media.js";
 
 // Newer Contest API feeds express deletion with data:null, older feeds use op:delete.
 export const normalizeEvent = (event) =>

@@ -1,5 +1,7 @@
 # 平台本地验收记录
 
+此文记录 UI 改造前的基线。新版画面、回归结果与未通过项见 [OLLAMA-VALIDATION.md](OLLAMA-VALIDATION.md)。
+
 日期：2026-10-30。代码基线为 Resolver Web v1.3.0，平台改造在 `codex/production-platform` 分支；本记录不代表已经发布新版本。
 
 ## 环境与范围

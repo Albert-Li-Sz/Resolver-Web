@@ -10,6 +10,24 @@ import {
   type Program,
 } from "./types";
 import { Field, Button, UploadImage, type Run } from "./ui";
+import liveConfig from "../vendor/icpc-live/config";
+const widgetLocation: Record<string, string> = {
+  scoreboard: "scoreboard",
+  queue: "queue",
+  firstSolves: "queue",
+  team: "teamViewSingle",
+  clock: "ticker",
+  ticker: "ticker",
+  title: "advertisement",
+  image: "picture",
+};
+function defaultPosition(key: string) {
+  const box = (liveConfig.WIDGET_POSITIONS as AnyRecord)[widgetLocation[key]];
+  return {
+    x: Number((box.positionX / 19.2).toFixed(2)),
+    y: Number((box.positionY / 10.8).toFixed(2)),
+  };
+}
 export default function Live({ state, run }: { state: AnyRecord; run: Run }) {
   const [tab, setTab] = useState("director");
   const [draft, setDraft] = useState<Scene>(state.broadcast.preview);
@@ -255,6 +273,13 @@ export default function Live({ state, run }: { state: AnyRecord; run: Run }) {
             </section>
             <section className="panel">
               <h2>叠加组件</h2>
+              <Button
+                className="secondary"
+                disabled={!Object.keys(draft.positions).length}
+                onClick={() => change({ positions: {} })}
+              >
+                还原原版位置
+              </Button>
               <div className="widget-grid">
                 {Object.entries(widgetLabels).map(([key, label]) => (
                   <div className="widget" key={key}>
@@ -279,15 +304,19 @@ export default function Live({ state, run }: { state: AnyRecord; run: Run }) {
                           <input
                             type="number"
                             min="0"
-                            max="90"
-                            value={draft.positions[key]?.x ?? 0}
+                            max="100"
+                            value={
+                              draft.positions[key]?.x ?? defaultPosition(key).x
+                            }
                             onChange={(e) =>
                               change({
                                 positions: {
                                   ...draft.positions,
                                   [key]: {
                                     x: Number(e.target.value),
-                                    y: draft.positions[key]?.y || 0,
+                                    y:
+                                      draft.positions[key]?.y ??
+                                      defaultPosition(key).y,
                                   },
                                 },
                               })
@@ -298,14 +327,18 @@ export default function Live({ state, run }: { state: AnyRecord; run: Run }) {
                           <input
                             type="number"
                             min="0"
-                            max="90"
-                            value={draft.positions[key]?.y ?? 0}
+                            max="100"
+                            value={
+                              draft.positions[key]?.y ?? defaultPosition(key).y
+                            }
                             onChange={(e) =>
                               change({
                                 positions: {
                                   ...draft.positions,
                                   [key]: {
-                                    x: draft.positions[key]?.x || 0,
+                                    x:
+                                      draft.positions[key]?.x ??
+                                      defaultPosition(key).x,
                                     y: Number(e.target.value),
                                   },
                                 },
@@ -627,6 +660,10 @@ function Contests({ state, run }: { state: AnyRecord; run: Run }) {
   );
 }
 function Sources({ state, run }: { state: AnyRecord; run: Run }) {
+  const sources = state.media.filter(
+    (m: any) =>
+      !m.teamId || !m.workspaceId || m.workspaceId === state.activeWorkspaceId,
+  );
   const [form, setForm] = useState<AnyRecord>({
     name: "",
     url: "",
@@ -786,7 +823,7 @@ function Sources({ state, run }: { state: AnyRecord; run: Run }) {
       </div>
       <section className="panel">
         <h2>来源列表</h2>
-        {state.media.length ? (
+        {sources.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -798,11 +835,21 @@ function Sources({ state, run }: { state: AnyRecord; run: Run }) {
                 </tr>
               </thead>
               <tbody>
-                {state.media.map((m: any) => (
+                {sources.map((m: any) => (
                   <tr key={m.id}>
                     <td>{m.name}</td>
                     <td>
-                      {m.teamId || "通用"} · {m.role}
+                      {state.activeWorkspace?.contest?.teams?.find(
+                        (t: any) => t.id === m.teamId,
+                      )?.displayName ||
+                        m.teamId ||
+                        "通用"}{" "}
+                      ·{" "}
+                      {
+                        { camera: "摄像头", desktop: "桌面", audio: "音频" }[
+                          m.role as "camera" | "desktop" | "audio"
+                        ]
+                      }
                     </td>
                     <td>
                       {m.kind === "publish" ? "推送" : "拉取"}

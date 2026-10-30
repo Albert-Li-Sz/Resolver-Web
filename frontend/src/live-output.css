@@ -1,0 +1,32 @@
+/* Live-v3 owns the programme graphics. Management theme never enters this tree. */
+.live-output {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font:
+    400 22px Helvetica,
+    serif;
+  color: white;
+  -webkit-font-smoothing: antialiased;
+}
+.live-output * {
+  box-sizing: content-box;
+}
+.live-logical {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+}
+.live-widget {
+  position: absolute;
+  overflow: hidden;
+}
+.live-picture {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

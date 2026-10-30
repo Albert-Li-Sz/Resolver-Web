@@ -38,15 +38,35 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
   const [loop, setLoop] = useState(true);
   const [transition, setTransition] = useState("fade");
   const [planName, setPlanName] = useState("");
-  const command = (action: string, other = {}) =>
-    api("/displays/command", {
-      ids: selected,
-      revisions: Object.fromEntries(
-        state.displays.map((d: any) => [d.id, d.revision]),
-      ),
-      action,
-      ...other,
-    });
+  const [commandPending, setCommandPending] = useState(false);
+  const acknowledged = useRef(new Map<string, number>());
+  for (const d of state.displays)
+    acknowledged.current.set(
+      d.id,
+      Math.max(d.revision, acknowledged.current.get(d.id) || 0),
+    );
+  const command = async (action: string, other = {}) => {
+    setCommandPending(true);
+    try {
+      const changed = await api("/displays/command", {
+        ids: selected,
+        revisions: Object.fromEntries(
+          selected.map((id) => [id, acknowledged.current.get(id)]),
+        ),
+        action,
+        ...other,
+      });
+      // The REST receipt can arrive before the next SSE frame.
+      for (const d of changed)
+        acknowledged.current.set(
+          d.id,
+          Math.max(d.revision, acknowledged.current.get(d.id) || 0),
+        );
+      return changed;
+    } finally {
+      setCommandPending(false);
+    }
+  };
   const groups = [
     ...new Set<string>(state.displays.map((d: any) => d.group).filter(Boolean)),
   ];
@@ -115,7 +135,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
           </div>
           {state.displays.length ? (
             state.displays.map((d: any) => (
-              <label
+              <article
                 className={
                   "screen-card " + (selected.includes(d.id) ? "chosen" : "")
                 }
@@ -123,6 +143,8 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
               >
                 <input
                   type="checkbox"
+                  id={`display-select-${d.id}`}
+                  aria-label={`选择 ${d.name}`}
                   checked={selected.includes(d.id)}
                   onChange={(e) =>
                     setSelected((x) =>
@@ -138,7 +160,12 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
                   ) : (
                     <div className="screen-placeholder">等待画面回传</div>
                   )}
-                  <strong>{d.name}</strong>
+                  <label
+                    className="screen-select"
+                    htmlFor={`display-select-${d.id}`}
+                  >
+                    {d.name}
+                  </label>
                   <Button
                     className="secondary"
                     onClick={() => {
@@ -170,7 +197,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
                     状态版本 {d.appliedRevision ?? "待回执"} / {d.revision}
                   </small>
                 </div>
-              </label>
+              </article>
             ))
           ) : (
             <p className="empty">
@@ -188,7 +215,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
             ].map(([action, label]) => (
               <Button
                 className="secondary"
-                disabled={!selected.length}
+                disabled={!selected.length || commandPending}
                 key={action}
                 onClick={() => void run(() => command(action))}
               >
@@ -209,7 +236,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
           <div className="row">
             <Button
               className="secondary"
-              disabled={!selected.length}
+              disabled={!selected.length || commandPending}
               onClick={() =>
                 void run(() =>
                   command("rename", {
@@ -223,7 +250,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
             </Button>
             <Button
               className="secondary"
-              disabled={!selected.length}
+              disabled={!selected.length || commandPending}
               onClick={() =>
                 void run(
                   () => command("revoke"),
@@ -475,7 +502,7 @@ export default function Admin({ state, run }: { state: AnyRecord; run: Run }) {
             ))}
           </div>
           <Button
-            disabled={!selected.length}
+            disabled={!selected.length || commandPending}
             onClick={() =>
               void run(
                 () =>

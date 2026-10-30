@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy } from "react";
+import React, { useState, useEffect, useRef, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "./api";
 import type { AnyRecord } from "./types";
@@ -54,15 +54,17 @@ function App() {
       <>
         <Header />
         <main className="home">
-          <h1>赛事制作台</h1>
+          <div className="home-heading">
+            <h1>赛事制作台</h1>
+            <p>滚榜、导播与多屏展示</p>
+          </div>
           <div className="entry-grid">
-            {HOME.map(([name, desc, url, index]) => (
+            {HOME.map(([name, desc, url]) => (
               <a className="entry" href={url} key={name}>
-                <span className="entry-index">{index}</span>
                 <h2>{name}</h2>
                 <p>{desc}</p>
-                <span className="entry-arrow" aria-hidden>
-                  ↗
+                <span className="entry-action">
+                  进入 <ArrowIcon />
                 </span>
               </a>
             ))}
@@ -103,18 +105,75 @@ function App() {
     </>
   );
 }
-function Header() {
+function ArrowIcon() {
   return (
-    <header>
+    <svg
+      className="arrow-icon"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 10h12m-5-5 5 5-5 5" />
+    </svg>
+  );
+}
+function Header() {
+  const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        toggle.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [open]);
+  return (
+    <header className="platform-header">
       <a className="brand" href="/">
-        ▥ <span>ICPC 赛事制作台</span>
+        <span>ICPC 赛事制作台</span>
       </a>
-      <nav aria-label="模块导航">
+      <button
+        ref={toggle}
+        type="button"
+        className="nav-toggle"
+        aria-label={open ? "关闭模块导航" : "打开模块导航"}
+        aria-expanded={open}
+        aria-controls="platform-nav"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <svg
+          className="menu-icon"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d={open ? "m5 5 10 10M15 5 5 15" : "M4 6h12M4 10h12M4 14h12"} />
+        </svg>
+      </button>
+      <nav
+        id="platform-nav"
+        className={"platform-nav" + (open ? " is-open" : "")}
+        aria-label="模块导航"
+      >
         {HOME.map(([name, , url]) => (
           <a
             className={location.pathname.startsWith(url) ? "active" : ""}
             href={url}
             key={name}
+            aria-current={
+              location.pathname.startsWith(url) ? "page" : undefined
+            }
           >
             {name}
           </a>

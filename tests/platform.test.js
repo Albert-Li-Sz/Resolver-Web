@@ -416,3 +416,13 @@ test("malformed event batches fail without changing the persisted cursor or revi
   assert.equal(s.workspace(w.id).revision, 0);
   assert.equal(s.workspace(w.id).cursor, null);
 });
+test("scene coordinates retain the original bottom ticker position", () => {
+  assert.deepEqual(
+    scene({ positions: { clock: { x: 0.83, y: 94.07 } } }).positions.clock,
+    { x: 0.83, y: 94.07 },
+  );
+  assert.deepEqual(
+    scene({ positions: { title: { x: -1, y: 200 } } }).positions.title,
+    { x: 0, y: 100 },
+  );
+});
