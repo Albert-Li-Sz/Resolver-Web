@@ -1,3 +1,5 @@
+import { createPlatform } from './platform/routes.js';
+import { hash } from './platform/model.js';
 import { cacheRemoteMedia } from './lib/remote-media.js';
 import { mediaLibrary } from './lib/media-library.js';
 import { ASSET_DIR, saveImage } from './lib/assets.js';
@@ -24,15 +26,29 @@ app.use((req, res, next) => {
   res.set({
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self'; connect-src 'self' data:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self'; connect-src 'self' data: http: https:; media-src 'self' blob: http: https:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'",
   });
   if (req.path.toLowerCase().startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
 app.use(managementAccess);
 app.use('/api/parse', express.text({ type: ['text/plain', 'application/x-ndjson'], limit: LIMITS.feedBytes }));
+app.use('/api/workspaces', express.text({ type: ['text/plain', 'application/x-ndjson'], limit: LIMITS.feedBytes }));
 app.use(express.json({ limit: LIMITS.jsonBytes }));
 
+const platform = await createPlatform();
+app.use('/api', platform.router);
+app.post('/internal/media/auth', (req, res) => {
+  const { user, password, action, path: mediaPath } = req.body || {};
+  const key = process.env.MEDIA_INTERNAL_KEY;
+  if (!key) return res.sendStatus(403);
+  if (user === 'worker' && equalSecret(password, key)) return res.sendStatus(200);
+  const source = platform.store.state.media.find(m => `source-${m.id}` === mediaPath && m.kind === 'publish');
+  if (action === 'publish' && source && user === 'publisher' && equalSecret(password, source.token)) return res.sendStatus(200);
+  const expiry = Number(user);
+  if (action === 'read' && /^play-[a-f0-9]{32}$/.test(mediaPath || '') && expiry > Date.now() && expiry < Date.now()+120000 && equalSecret(password, hash(`${key}:${mediaPath}:${expiry}`))) return res.sendStatus(200);
+  res.sendStatus(403);
+});
 const sessions = new LiveSessionStore();
 await sessions.restore();
 
@@ -266,6 +282,21 @@ app.get(['/view', '/view/'], (req, res) => {
   res.sendFile(path.join(ROOT, 'public', 'watch.html'));
 });
 
+// Explicit module routes precede legacy static files; unknown paths remain real 404s.
+const frontend = path.join(ROOT, 'public', 'platform', 'index.html');
+app.get(['/', '/live', '/live/*path', '/presentation-admin', '/presentation-admin/*path', '/presentations', '/presentations/*path'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(frontend);
+});
+const resolverPages = { '': 'index', logos: 'logos', display: 'display', preview: 'preview', presets: 'presets' };
+app.get(['/resolver', '/resolver/*path'], (req,res,next) => {
+  const name = req.path.replace(/^\/resolver\/?/, '').replace(/\/$/, '');
+  const file = resolverPages[name];
+  if (!file) return next();
+  res.sendFile(path.join(ROOT, 'public', `${file}.html`));
+});
+app.get(['/index', '/index.html'], (_req,res) => res.redirect(302, '/resolver/'));
+for (const name of ['logos','display','preview','presets']) app.get([`/${name}`,`/${name}.html`], (_req,res) => res.redirect(302, `/resolver/${name}`));
 // Static app.
 app.use(
   express.static(path.join(ROOT, 'public'), {
@@ -278,11 +309,6 @@ app.use(
     },
   }),
 );
-
-app.use((req, res, next) => {
-  if (req.path.toLowerCase().startsWith('/api/') || req.path.toLowerCase().startsWith('/media/') || path.extname(req.path) || req.method !== 'GET') return next();
-  res.sendFile(path.join(ROOT, 'public', 'index.html'));
-});
 
 app.use((req, res) => {
   if (req.path.toLowerCase().startsWith('/api/')) return fail(res, 404, '接口不存在');
@@ -305,4 +331,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   });
 }
 
-export { app };
+export { app, platform };

@@ -175,7 +175,8 @@ test('management authentication covers reads/writes while viewers and presenter 
   const base = await serve(t);
   process.env.RESOLVER_ADMIN_KEY = 'fixture-admin-key';
   t.after(() => { delete process.env.RESOLVER_ADMIN_KEY; });
-  for (const route of ['/', '/api/demo', '/api/configs', '/API/CONFIGS', '/api/media-library']) assert.equal((await fetch(base + route)).status, 401, route);
+  assert.equal((await fetch(base + '/')).status, 200, 'platform home is public');
+  for (const route of ['/resolver/', '/live/', '/presentation-admin/', '/api/platform', '/api/demo', '/api/configs', '/API/CONFIGS', '/api/media-library']) assert.equal((await fetch(base + route)).status, 401, route);
   for (const route of ['/api/parse', '/api/fetch', '/api/game', '/API/GAME', '/api/awards', '/api/assets', '/api/configs', '/api/media-library']) assert.equal((await fetch(base + route, json({}))).status, 401, route);
   const headers = { 'Content-Type': 'application/json', Authorization: `Basic ${Buffer.from('admin:fixture-admin-key').toString('base64')}` };
   const response = await fetch(`${base}/api/game`, { ...json(createDemo()), headers });

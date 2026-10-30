@@ -1,62 +1,39 @@
-# Resolver Web
+# ICPC 赛事制作台
 
-## 项目介绍
+纯 Web 的赛事滚榜、导播与多屏展示平台，提供四个入口：
 
-面向 ICPC / XCPC 现场颁奖的 Web 滚榜工具，在浏览器中完成赛事配置、榜单揭晓和大屏展示。
-
-支持 CCS Contest API 事件流及 Hydro CDP 导出，提供学校 Logo 自动匹配、队伍照片、金银铜与冠亚季军、最快解题奖、观众同步、重启恢复和 LED 大屏校准。无需数据库或前端构建。
-
-本项目是基于 [ICPC Tools Resolver](https://github.com/icpctools/icpctools) 的非官方 Web 实现。[开源许可](LICENSE) · [第三方声明](THIRD_PARTY_NOTICES.md)
+- **Resolver**：保留原有滚榜、奖项、校徽、主持与观众同步。
+- **Live**：网页配置赛事和媒体来源，导播预览、正式输出与 OBS 透明叠加。
+- **PresentationAdmin**：通过链接码连接、命名和分组展示屏，下发同步节目单。
+- **Presentations**：浏览器展示端，支持 2K / 4K、LED 比例与断线恢复。
 
 ## 快速部署
 
-### Docker Compose
-
-镜像由 GitHub Actions 构建并发布到 GHCR，支持 amd64 / arm64。安装 Docker 和 Compose，然后执行：
+安装 Docker Compose，在源码目录执行：
 
 ```bash
-git clone https://github.com/Albert-Li-Sz/Resolver-Web.git
-cd Resolver-Web
-cp .env.example .env
+cp deploy/platform.env.example .env
+# 填写管理员密码、随机媒体内部密钥、服务器局域网 IP。
+docker compose --env-file .env -f compose.platform.yaml up -d --build
 ```
 
-编辑 `.env`，设置管理员密码，并允许局域网设备访问：
+打开 `http://服务器IP:4173/`。管理端用户名为 `admin`，密码为 `.env` 中的 `RESOLVER_ADMIN_KEY`。升级请保留原项目名及 `resolver-data` 数据卷。
 
-```dotenv
-RESOLVER_ADMIN_KEY=请替换为自己的管理员密码
-RESOLVER_BIND_ADDRESS=0.0.0.0
-```
-
-启动服务：
+本地开发：
 
 ```bash
-docker compose pull
-docker compose up -d
-```
-
-打开 `http://服务器IP:4173/`，用户名为 `admin`，密码为 `.env` 中设置的值。赛事、素材与直播进度保存在 Docker 数据卷中。
-
-### 本机运行
-
-安装 Node.js 22 或 24，然后执行：
-
-```bash
-git clone https://github.com/Albert-Li-Sz/Resolver-Web.git
-cd Resolver-Web
 npm ci
+npm run build
 npm start
 ```
 
-打开 <http://127.0.0.1:4173/>，本机默认无需密码。域名、HTTPS、局域网配置、升级与备份见[部署说明](doc/部署说明.md)。
-
 ## 快速使用
 
-1. **导入赛事**：上传 `.ndjson`、`.jsonl` 或 `.json` 事件流。Hydro 用户上传 CDP 导出包中的 `event-feed.ndjson`。
-2. **准备素材**：自动匹配学校 Logo，未匹配时使用 ICPC 官方 Logo；可补充队伍照片，赛前点击「检查并缓存素材」。
-3. **配置并预览**：在「画面与奖项」中选择渲染分辨率（1080p / 2K / 4K），设置封榜与奖项，再通过「滚榜预览」检查效果。
-4. **开始滚榜**：点击「开始滚榜」，使用 `→` / 空格推进、`←` 回退，`F` 全屏，`C` 校准大屏。
-5. **分享观众页**：其他设备打开 `http://服务器IP:4173/view`，自动跟随主持端观看。
+1. 在 Live 导入 NDJSON 或配置 Contest API / 事件流连接，填写媒体来源。
+2. 在 Resolver 创建独立快照并配置滚榜；外部观众使用 `/view`。
+3. 在 Live 调整预览，确认后切换正式画面，复制输出链接到 OBS。
+4. 展示电脑打开 Presentations，管理端输入链接码、命名屏幕，选择节目单后下发。
 
-服务重启后，在配置中心点击「继续上次滚榜」恢复进度；恢复后保持暂停。连接中断时，观众页保留画面并自动重连。
+[完整使用与部署说明](doc/PLATFORM.md) · [示例事件流](examples/README.md)
 
-[示例榜单](examples/README.md) · [图文使用指南](doc/使用指南.md) · [PDF 使用指南](doc/使用指南.pdf)
+基于 ICPC Tools 的滚榜与展示理念，参考 ICPC Live-v3 导播流程。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

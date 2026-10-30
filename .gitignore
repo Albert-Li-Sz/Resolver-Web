@@ -21,3 +21,5 @@ data/live/
 data/remote-media.json
 data/.remote-media.json.*.tmp
 dist/
+public/platform/
+data/platform/

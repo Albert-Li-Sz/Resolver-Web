@@ -33,6 +33,7 @@ jobs:
           done
           exit 1
       - run: RESOLVER_ADMIN_KEY=ci-smoke-key npm run smoke -- http://127.0.0.1:4180
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key node scripts/smoke-platform.mjs http://127.0.0.1:4180
       - run: docker restart resolver-test
       - run: |
           for attempt in $(seq 1 30); do
@@ -43,3 +44,5 @@ jobs:
       - run: RESOLVER_ADMIN_KEY=ci-smoke-key npm run smoke -- http://127.0.0.1:4180 verify-restart
       - if: always()
         run: docker logs resolver-test
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key node scripts/smoke-platform.mjs http://127.0.0.1:4180 verify-restart
+      - run: docker build -t resolver-media-worker:test media-worker

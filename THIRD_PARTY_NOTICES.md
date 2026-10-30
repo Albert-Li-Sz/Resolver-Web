@@ -26,3 +26,17 @@ Project Authors. Its SIL Open Font License 1.1 is included in
 https://github.com/google/fonts/blob/main/ofl/dmsans/OFL.txt
 
 Express and its dependencies retain the licenses included in their npm packages.
+
+The platform interface uses React and React DOM (MIT), Vite and TypeScript as
+build tools (MIT and Apache-2.0 respectively), and hls.js (Apache-2.0). Their
+license files are supplied by the corresponding npm packages. Live-v3
+(https://github.com/icpc/live-v3, MIT) is a workflow reference; the JVM service
+and official client wire protocol are not bundled.
+
+The optional platform Compose deployment uses MediaMTX
+(https://github.com/bluenviron/mediamtx, MIT) and Alpine's FFmpeg package.
+The FFmpeg build includes GPL-enabled codecs, including libx264; the media
+worker distribution retains FFmpeg's GPL notices. Package source and build
+recipes: https://gitlab.alpinelinux.org/alpine/aports/-/tree/master/community/ffmpeg
+and https://ffmpeg.org/download.html. MediaMTX and FFmpeg are separate services
+and their original licenses continue to apply.
