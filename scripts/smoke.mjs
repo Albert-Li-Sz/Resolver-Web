@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 
-const base = process.argv[2] || 'http://127.0.0.1:4173';
+const base = process.argv[2] || 'http://127.0.0.1:9080';
 const mode = process.argv[3] || 'check';
 const stateFile = process.env.RESOLVER_SMOKE_STATE || '/tmp/resolver-smoke-state.json';
 const management = process.env.RESOLVER_ADMIN_KEY ? { 'X-Resolver-Admin': process.env.RESOLVER_ADMIN_KEY } : {};

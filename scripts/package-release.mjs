@@ -93,7 +93,7 @@ try {
   );
   await writeFile(
     path.join(temporary, "README.md"),
-    `# ICPC 赛事制作台 v${version}\n\n1. 复制 .env.example 为 .env，填写两个密钥、服务器局域网 IP 及绑定地址。\n2. 执行 docker compose pull 和 docker compose up -d。\n3. 访问 http://服务器IP:4173/；管理端用户名 admin。\n\n完整使用说明见 GUIDE.md。升级保留原项目名、数据卷及管理员密码。旧版 .env 需补充 MEDIA_INTERNAL_KEY、MEDIA_PUBLIC_HOST；镜像可由 RESOLVER_IMAGE 和 MEDIA_WORKER_IMAGE 覆盖。\n`,
+    `# ICPC 赛事制作台 v${version}\n\n1. 复制 .env.example 为 .env，填写两个密钥、服务器局域网 IP 及绑定地址。\n2. 执行 docker compose pull 和 docker compose up -d。\n3. 访问 http://服务器IP:9080/；管理端用户名 admin。\n\n完整使用说明见 GUIDE.md。升级保留原项目名、数据卷及管理员密码。旧版 .env 需补充 MEDIA_INTERNAL_KEY、MEDIA_PUBLIC_HOST；镜像可由 RESOLVER_IMAGE 和 MEDIA_WORKER_IMAGE 覆盖。\n`,
   );
   execFileSync(
     "tar",

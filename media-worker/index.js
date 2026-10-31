@@ -5,6 +5,9 @@ import { mediaInput } from "./source.mjs";
 const key = process.env.MEDIA_INTERNAL_KEY;
 if (!key) throw Error("MEDIA_INTERNAL_KEY is required");
 const host = process.env.MEDIA_MTX_HOST || "mediamtx";
+const rtspPort = Number(process.env.MEDIA_MTX_RTSP_PORT || 20001);
+const port = Number(process.env.MEDIA_WORKER_PORT || 20007);
+if (![rtspPort, port].every(value => Number.isInteger(value) && value >= 1 && value <= 65535)) throw Error("Invalid media service port");
 const networkPolicy = process.env.RESOLVER_NETWORK_POLICY || "open";
 if (!["open", "restricted"].includes(networkPolicy)) throw Error("RESOLVER_NETWORK_POLICY must be open or restricted");
 const jobs = new Map();
@@ -13,7 +16,7 @@ const equal = (a, b) =>
   Buffer.byteLength(a) === Buffer.byteLength(b) &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 async function input(source) {
-  return mediaInput(source, { key, host, networkPolicy });
+  return mediaInput(source, { key, host, rtspPort, networkPolicy });
 }
 async function probe(source) {
   const url = await input(source);
@@ -120,7 +123,7 @@ async function start(job) {
       "rtsp",
       "-rtsp_transport",
       "tcp",
-      `rtsp://worker:${encodeURIComponent(key)}@${host}:8554/play-${job.source.id}`,
+      `rtsp://worker:${encodeURIComponent(key)}@${host}:${rtspPort}/play-${job.source.id}`,
     ];
     const child = spawn("ffmpeg", args, { stdio: "ignore" });
     job.child = child;
@@ -255,7 +258,7 @@ setInterval(() => {
     }
   }
 }, 15000).unref();
-server.listen(8091, "0.0.0.0");
+server.listen(port, "0.0.0.0");
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     for (const job of jobs.values()) stop(job);

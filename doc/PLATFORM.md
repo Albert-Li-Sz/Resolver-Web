@@ -15,7 +15,7 @@ docker compose --env-file .env -f compose.platform.yaml pull
 docker compose --env-file .env -f compose.platform.yaml up -d --no-build
 ```
 
-默认监听 `0.0.0.0:4173`，可通过任意本机 IP 或域名访问。网络及安全策略由部署者配置，详见 [网络配置](NETWORK.md)。媒体需要场馆设备可访问 TCP 8554、1935、8888、8889、8189，UDP 8890、8189。WebRTC 默认使用场馆 IP；无需公网穿透或 TURN。
+默认监听 `0.0.0.0:9080`，可通过任意本机 IP 或域名访问。网络及安全策略由部署者配置，详见 [网络配置](NETWORK.md)。媒体需要场馆设备可访问 TCP 20001、20002、20004、20005、20006，UDP 20003、20006。WebRTC 默认使用场馆 IP；无需公网穿透或 TURN。
 
 默认镜像为 `ghcr.io/albert-li-sz/resolver-web:main` 与 `ghcr.io/albert-li-sz/resolver-web-media-worker:main`，均支持 `linux/amd64`、`linux/arm64`。这是主分支的场馆验收版；OBS 与真实场馆验收完成前，稳定版 `latest` 保持 v1.3.0。固定部署时，将 `.env` 中两个镜像的标签同时改为 `sha-完整提交号`，或使用构建产物 `image-digests` 中的摘要。升级旧 `.env` 时补上这两个镜像字段，否则源码 Compose 会继续使用本地镜像名。需要源码构建时执行 `up -d --build`。
 

@@ -20,7 +20,7 @@ import { outputProfile } from "../../public/js/output-profile.js";
 import { readHealth, MediaMonitor } from "./health.js";
 import { currentContent } from "./emergency.js";
 import { networkPolicy, restrictedNetwork } from "../lib/network-policy.js";
-import { mediaAddresses } from "./media-address.js";
+import { mediaAddresses, mediaPort } from "./media-address.js";
 export async function createPlatform() {
   const store = new PlatformStore();
   await store.restore();
@@ -634,9 +634,9 @@ export async function createPlatform() {
       if (!m || m.kind !== "publish") throw inputError("不是发布来源");
       const host = mediaAddresses(q).publishHost;
       r.json({
-        rtmp: `rtmp://${host}:1935/source-${m.id}?user=publisher&pass=${m.token}`,
-        srt: `srt://${host}:8890?streamid=publish:source-${m.id}:publisher:${m.token}`,
-        rtsp: `rtsp://publisher:${m.token}@${host}:8554/source-${m.id}`,
+        rtmp: `rtmp://${host}:${mediaPort('MEDIA_RTMP_PORT', 20002)}/source-${m.id}?user=publisher&pass=${m.token}`,
+        srt: `srt://${host}:${mediaPort('MEDIA_SRT_PORT', 20003)}?streamid=publish:source-${m.id}:publisher:${m.token}`,
+        rtsp: `rtsp://publisher:${m.token}@${host}:${mediaPort('MEDIA_RTSP_PORT', 20001)}/source-${m.id}`,
       });
     }),
   );

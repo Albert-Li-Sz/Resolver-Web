@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
-const base = (process.argv[2] || 'http://127.0.0.1:4173').replace(/\/$/, '');
+const base = (process.argv[2] || 'http://127.0.0.1:9080').replace(/\/$/, '');
 const archive = process.env.ONSITE_SMOKE_STATE || '/tmp/resolver-onsite-smoke.json';
 const headers = { 'Content-Type': 'application/json', 'X-Resolver-Admin': process.env.RESOLVER_ADMIN_KEY || '' };
 async function api(route, body, method = body === undefined ? 'GET' : 'POST', status = 200) {

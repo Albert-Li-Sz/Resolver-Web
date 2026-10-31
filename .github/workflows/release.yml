@@ -83,7 +83,7 @@ jobs:
       - name: Verify media runtime
         run: docker run --rm --entrypoint ffmpeg resolver-media-worker:release-test -version
       - name: Run container
-        run: docker run -d --name resolver-release-test -p 127.0.0.1:4180:4173 -e RESOLVER_ADMIN_KEY -v resolver-release-data:/app/data resolver-web:release-test
+        run: docker run -d --name resolver-release-test -p 127.0.0.1:4180:9080 -e RESOLVER_ADMIN_KEY -v resolver-release-data:/app/data resolver-web:release-test
       - name: Wait for API
         run: |
           for attempt in $(seq 1 30); do
@@ -124,6 +124,14 @@ jobs:
           docker push "$IMAGE:sha-${GITHUB_SHA}-${ARCH}"
           docker tag resolver-media-worker:release-test "${IMAGE}-media-worker:sha-${GITHUB_SHA}-${ARCH}"
           docker push "${IMAGE}-media-worker:sha-${GITHUB_SHA}-${ARCH}"
+      - name: Verify real installer and uninstaller on this architecture
+        run: node scripts/smoke-installer.mjs --with-media --tag "sha-${GITHUB_SHA}-${ARCH}"
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: installer-verification-${{ matrix.arch }}
+          path: test-results/installer-verification.json
+          if-no-files-found: ignore
       - if: always()
         run: docker logs resolver-release-test || true
   publish:

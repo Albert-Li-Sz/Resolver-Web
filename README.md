@@ -15,7 +15,9 @@
 curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/install.sh -o resolver-install.sh && bash resolver-install.sh
 ```
 
-默认监听 `0.0.0.0:4173`，可通过任意本机 IP 或指向本机的域名访问。默认安装到 `./resolver-web`；用户名为 `admin`，密码在该目录 `.env` 的 `RESOLVER_ADMIN_KEY` 中。
+默认监听 `0.0.0.0:9080`，可通过任意本机 IP 或指向本机的域名访问。默认安装到 `./resolver-web`；用户名为 `admin`，密码在该目录 `.env` 的 `RESOLVER_ADMIN_KEY` 中。
+
+媒体使用 `20001–20006`。卸载执行 `bash ./resolver-web/uninstall.sh`，默认保留赛事数据；端口配置和完整卸载选项见 [安装说明](doc/INSTALL.md)。
 
 更新、查看状态：
 

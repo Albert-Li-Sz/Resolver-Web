@@ -19,21 +19,25 @@ const mockDocker = [
   " const a=standalone?args:args.slice(1);",
   " if(a[0]==='version'){if(!standalone&&process.env.INSTALL_TEST_STANDALONE)process.exit(1);console.log('2.30.0');process.exit(0);}",
   " if(a.includes('--help')){console.log('--wait-timeout');process.exit(0);}",
-  " const command=a.find(x=>['up','stop','ps','config','logs'].includes(x));",
+  " const command=a.find(x=>['up','stop','ps','config','logs','down'].includes(x));",
   " if(command==='up'){state.upAttempts++;if(process.env.INSTALL_TEST_FAIL_UP&&state.upAttempts===Number(process.env.INSTALL_TEST_FAIL_UP)){save();process.exit(1);}state.running=true;save();}",
-  " if(command==='stop'){state.running=false;save();}",
+  " if(command==='stop'||command==='down'){state.running=false;save();}",
   " if(command==='ps'&&state.running)console.log('test-container');",
   " process.exit(0);",
   "}",
   "if(args[0]==='ps')process.exit(0);",
+  "if(args[0]==='create'){state.probe=args;save();console.log('installer-port-probe');process.exit(0);}",
+  "if(args[0]==='start'){if(process.env.INSTALL_TEST_BUSY_PORT&&state.probe.some(a=>a.includes(':'+process.env.INSTALL_TEST_BUSY_PORT+':'))){console.error('failed to bind host port 0.0.0.0:'+process.env.INSTALL_TEST_BUSY_PORT+'/tcp: address already in use');process.exit(1);}process.exit(0);}",
+  "if(args[0]==='rm'){delete state.probe;save();process.exit(0);}",
   "if(args[0]==='pull'){if(process.env.INSTALL_TEST_FAIL_PULL)process.exit(1);process.exit(0);}",
   "if(args[0]==='image'&&args[1]==='inspect'){",
+  " if(args.at(-1).includes('io.resolver.network-layout')){console.log(process.env.INSTALL_TEST_LAYOUT||'2');process.exit(0);}",
   " const image=args[2],revision=(process.env.INSTALL_TEST_REVISION||'c').repeat(40);",
   " if(args.at(-1).includes('RepoDigests')){const repo=image.slice(0,image.lastIndexOf(':'));console.log(repo+'@sha256:'+crypto.createHash('sha256').update(image+revision).digest('hex'));}",
   " else console.log(image.includes('media-worker')&&process.env.INSTALL_TEST_MISMATCH?'d'.repeat(40):revision);",
   " process.exit(0);",
   "}",
-  "if(args[0]==='volume'){const name=args[2];if(args[1]==='inspect')process.exit(state.volumes.includes(name)?0:1);if(args[1]==='create'){state.volumes.push(name);save();process.exit(0);}throw Error('Installer must not delete volumes');}",
+  "if(args[0]==='volume'){const name=args[2];if(args[1]==='inspect')process.exit(state.volumes.includes(name)?0:1);if(args[1]==='create'){state.volumes.push(name);save();process.exit(0);}if(args[1]==='rm'){state.volumes=state.volumes.filter(v=>v!==name);save();process.exit(0);}throw Error('Unexpected volume command');}",
   "if(args[0]==='run'){if(process.env.INSTALL_TEST_FAIL_BACKUP)process.exit(1);process.stdout.write('test-volume-archive');process.exit(0);}",
   "throw Error('Unexpected Docker command: '+args.join(' '));",
 ].join('\n');
@@ -184,11 +188,63 @@ test('default installation binds all interfaces and requires no fixed IP or doma
   assert.equal(result.status, 0, result.stderr);
   const env = await readFile(path.join(f.dir, '.env'), 'utf8');
   assert.match(env, /^RESOLVER_BIND_ADDRESS=0\.0\.0\.0$/m);
+  assert.match(env, /^RESOLVER_PORT=9080$/m);
   assert.match(env, /^MEDIA_PUBLIC_HOST=$/m);
   assert.match(env, /^RESOLVER_NETWORK_POLICY=open$/m);
   const config = await readFile(path.join(f.dir, 'compose.yaml'), 'utf8');
   assert.match(config, /MEDIA_BROWSER_BASE: \$\{MEDIA_BROWSER_BASE:-\}/);
   assert.doesNotMatch(config, /http:\/\/192\.168/);
+});
+
+test('occupied media ports are detected before deployment and an empty installation can be retried', async t => {
+  const f = await fixture(t);
+  const result = f.invoke(['install', '--project', 'installer-test'], { INSTALL_TEST_BUSY_PORT: '20004' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /20004/);
+  assert.match(result.stderr, /端口/);
+  assert.deepEqual(await readdir(f.dir), []);
+  assert.ok(!(await f.calls()).some(c => c.args.includes('up') && !c.args.includes('--help')));
+  assert.equal((await f.state()).probe, undefined, 'probe container must be removed after failure');
+  assert.equal(f.install().status, 0);
+});
+
+async function oldInstallation(f, customPort = '4173') {
+  assert.equal(f.install().status, 0);
+  for (const [name, destination] of [['compose.yaml', 'compose.yaml'], ['mediamtx.yml', 'deploy/mediamtx.yml']]) {
+    await writeFile(path.join(f.dir, destination), await readFile('tests/fixtures/installer-9ca5696/' + name));
+  }
+  const envFile = path.join(f.dir, '.env');
+  const env = (await readFile(envFile, 'utf8')).replace(/^RESOLVER_PORT=.*$/m, 'RESOLVER_PORT=' + customPort) + '\n# operator custom setting\nCUSTOM=preserved\n';
+  await writeFile(envFile, env);
+  return env;
+}
+
+test('legacy install port migration updates the web, worker, gateway and links as one deployment', async t => {
+  const f = await fixture(t);
+  const oldEnv = await oldInstallation(f);
+  const result = f.invoke(['update']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.equal(await readFile(path.join(f.dir, '.env'), 'utf8'), oldEnv.replace('RESOLVER_PORT=4173', 'RESOLVER_PORT=9080'));
+  const config = await readFile(path.join(f.dir, 'compose.yaml'), 'utf8');
+  assert.doesNotMatch(config, /:4173|PORT: 4173|:8091|:8554|:1935|:8890|:8888|:8889|:8189/);
+  assert.match(config, /MEDIA_HLS_PORT:-20004/);
+  assert.deepEqual(await readFile(path.join(f.dir, 'deploy/mediamtx.yml')), await readFile('deploy/mediamtx.yml'));
+  const backup = (await readdir(path.join(f.dir, 'backups')))[0];
+  assert.equal(await readFile(path.join(f.dir, 'backups', backup, '.env'), 'utf8'), oldEnv);
+});
+
+test('legacy port migration preserves a custom web port and restores all original files on failure', async t => {
+  const f = await fixture(t);
+  const oldEnv = await oldInstallation(f, '18080');
+  const oldGateway = await readFile(path.join(f.dir, 'deploy/mediamtx.yml'));
+  const oldCompose = await readFile(path.join(f.dir, 'compose.yaml'));
+  const result = f.invoke(['update'], { INSTALL_TEST_FAIL_UP: '2' });
+  assert.notEqual(result.status, 0);
+  assert.equal(await readFile(path.join(f.dir, '.env'), 'utf8'), oldEnv);
+  assert.deepEqual(await readFile(path.join(f.dir, 'deploy/mediamtx.yml')), oldGateway);
+  assert.deepEqual(await readFile(path.join(f.dir, 'compose.yaml')), oldCompose);
+  assert.equal(f.invoke(['update']).status, 0);
+  assert.equal(await readFile(path.join(f.dir, '.env'), 'utf8'), oldEnv);
 });
 
 test('updating an original installer deployment migrates fixed media addresses while preserving custom settings', async t => {
@@ -207,4 +263,52 @@ test('updating an original installer deployment migrates fixed media addresses w
   assert.match(updated, /# operator custom setting/);
   const backup = (await readdir(path.join(f.dir, 'backups')))[0];
   assert.equal(await readFile(path.join(f.dir, 'backups', backup, 'compose.yaml'), 'utf8'), config);
+});
+
+test('uninstall requires explicit confirmation and preserves data, configuration and image pins by default', async t => {
+  const f = await fixture(t);
+  assert.equal(f.install().status, 0);
+  const env = await readFile(path.join(f.dir, '.env'));
+  const lock = await readFile(path.join(f.dir, 'compose.override.yaml'));
+  assert.notEqual(f.invoke(['uninstall']).status, 0);
+  assert.equal((await f.state()).running, true);
+  const result = spawnSync('bash', [path.join(f.dir, 'uninstall.sh'), '--yes'], { cwd: f.root, env: f.env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal((await f.state()).running, false);
+  assert.deepEqual((await f.state()).volumes, ['installer-test-resolver-data']);
+  assert.deepEqual(await readFile(path.join(f.dir, '.env')), env);
+  assert.deepEqual(await readFile(path.join(f.dir, 'compose.override.yaml')), lock);
+  const down = (await f.calls()).find(c => c.args.includes('down'));
+  assert.ok(down.args.includes('installer-test'));
+  assert.ok(!down.args.includes('--volumes') && !down.args.includes('--rmi'));
+  assert.equal(f.invoke(['start']).status, 0);
+  assert.equal((await f.state()).running, true);
+});
+
+test('purging removes only the recorded project volume after explicit opt-in', async t => {
+  const f = await fixture(t);
+  assert.equal(f.install().status, 0);
+  assert.notEqual(f.invoke(['uninstall', '--purge-data']).status, 0);
+  assert.notEqual(f.invoke(['update', '--purge-data', '--yes']).status, 0);
+  assert.deepEqual((await f.state()).volumes, ['installer-test-resolver-data']);
+  assert.equal(f.invoke(['uninstall', '--purge-data', '--yes']).status, 0);
+  assert.deepEqual((await f.state()).volumes, []);
+  const removals = (await f.calls()).filter(c => c.args[0] === 'volume' && c.args[1] === 'rm');
+  assert.deepEqual(removals.map(c => c.args[2]), ['installer-test-resolver-data']);
+  assert.equal(f.invoke(['uninstall', '--purge-data', '--yes']).status, 0, 'purging an already removed volume is idempotent');
+});
+
+test('older images cannot be started with the new port layout and custom media ports reach Compose', async t => {
+  const f = await fixture(t);
+  const result = f.invoke(['install'], { INSTALL_TEST_LAYOUT: '1' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /尚不支持新版端口布局/);
+  assert.deepEqual(await readdir(f.dir), []);
+  assert.equal(f.install('--media-port-base', '20501').status, 0);
+  const env = await readFile(path.join(f.dir, '.env'), 'utf8');
+  assert.ok(/^MEDIA_RTSP_PORT=20501$/m.test(env));
+  assert.ok(/^MEDIA_ICE_PORT=20506$/m.test(env));
+  const probe = (await f.calls()).find(c => c.args[0] === 'create');
+  assert.ok(probe.args.includes('0.0.0.0:20504:20504/tcp'));
+  assert.ok(probe.args.includes('0.0.0.0:20506:20506/udp'));
 });

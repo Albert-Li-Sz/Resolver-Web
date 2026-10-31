@@ -1,0 +1,54 @@
+services:
+  resolver:
+    image: ghcr.io/albert-li-sz/resolver-web:main
+    restart: unless-stopped
+    ports:
+      - "${RESOLVER_BIND_ADDRESS:-0.0.0.0}:${RESOLVER_PORT:-4173}:4173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+      RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}
+      RESOLVER_ALLOWED_ORIGINS: ${RESOLVER_ALLOWED_ORIGINS:-}
+      RESOLVER_SECURITY_HEADERS: ${RESOLVER_SECURITY_HEADERS:-false}
+      RESOLVER_DATA_DIR: /app/data
+      MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY:?请设置媒体内部密钥}
+      MEDIA_WORKER_URL: http://media-worker:8091
+      MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:-}
+      MEDIA_BROWSER_BASE: ${MEDIA_BROWSER_BASE:-}
+      MEDIA_HLS_BASE: ${MEDIA_HLS_BASE:-}
+    volumes:
+      - resolver-data:/app/data
+    security_opt: [no-new-privileges:true]
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+  mediamtx:
+    profiles: [media]
+    image: bluenviron/mediamtx:1.21.3
+    restart: unless-stopped
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_ICE_HOSTS:-${MEDIA_PUBLIC_HOST:-}}
+    volumes:
+      - ./deploy/mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8554:8554"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:1935:1935"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8890:8890/udp"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8888:8888"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8889:8889"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8189:8189/udp"
+      - "${MEDIA_BIND_ADDRESS:-0.0.0.0}:8189:8189/tcp"
+    security_opt: [no-new-privileges:true]
+  media-worker:
+    profiles: [media]
+    image: ghcr.io/albert-li-sz/resolver-web-media-worker:main
+    restart: unless-stopped
+    environment:
+      MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY}
+      MEDIA_MTX_HOST: mediamtx
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+    security_opt: [no-new-privileges:true]
+volumes:
+  resolver-data:
+    name: installer-test-resolver-data
+    external: true

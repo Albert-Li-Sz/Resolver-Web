@@ -1,4 +1,9 @@
 const bracketHost = host => host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+export function mediaPort(name, fallback) {
+  const value = process.env[name] || String(fallback);
+  if (!/^[1-9][0-9]*$/.test(value) || Number(value) > 65535) throw Error(`${name} must be a port between 1 and 65535`);
+  return Number(value);
+}
 export function mediaAddresses(req) {
   const protocol = req.protocol === 'https' ? 'https' : 'http';
   const requestHost = bracketHost(req.hostname);
@@ -7,7 +12,7 @@ export function mediaAddresses(req) {
   const withoutSlash = value => value.replace(/\/+$/, '');
   return {
     publishHost,
-    whepBase: withoutSlash(process.env.MEDIA_BROWSER_BASE || `${protocol}://${requestHost}:8889`),
-    hlsBase: withoutSlash(process.env.MEDIA_HLS_BASE || `${protocol}://${requestHost}:8888`),
+    whepBase: withoutSlash(process.env.MEDIA_BROWSER_BASE || `${protocol}://${requestHost}:${mediaPort('MEDIA_WEBRTC_PORT', 20005)}`),
+    hlsBase: withoutSlash(process.env.MEDIA_HLS_BASE || `${protocol}://${requestHost}:${mediaPort('MEDIA_HLS_PORT', 20004)}`),
   };
 }

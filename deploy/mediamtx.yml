@@ -1,19 +1,24 @@
 logLevel: warn
 authMethod: http
-authHTTPAddress: http://resolver:4173/internal/media/auth
+authHTTPAddress: http://resolver:9080/internal/media/auth
 authHTTPExclude: []
 api: yes
-apiAddress: :9997
+apiAddress: :20008
+rtspAddress: :20001
 rtspTransports: [tcp]
 rtmp: yes
+rtmpAddress: :20002
 srt: yes
+srtAddress: :20003
 hls: yes
+hlsAddress: :20004
 hlsVariant: lowLatency
 hlsAlwaysRemux: no
 hlsAllowOrigins: ['*']
 webrtc: yes
+webrtcAddress: :20005
 webrtcAllowOrigins: ['*']
-webrtcLocalUDPAddress: :8189
-webrtcLocalTCPAddress: :8189
+webrtcLocalUDPAddress: :20006
+webrtcLocalTCPAddress: :20006
 paths:
   all_others:

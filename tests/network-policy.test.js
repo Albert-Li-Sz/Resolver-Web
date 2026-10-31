@@ -109,13 +109,13 @@ test('media URLs follow the current IP, domain and forwarded HTTPS host instead 
   const media = await (await fetch(base + '/api/media/sources', json({ name: 'Published', kind: 'publish' }))).json();
   for (const [host, expected] of [['venue.example.org', 'venue.example.org'], ['192.168.50.10:8080', '192.168.50.10']]) {
     const links = await (await withHost(base, '/api/media/sources/' + media.id + '/publish', { headers: { Host: host } })).json();
-    assert.ok(links.rtmp.startsWith('rtmp://' + expected + ':1935/'));
+    assert.ok(links.rtmp.startsWith('rtmp://' + expected + ':20002/'));
   }
   const req = { protocol: 'https', hostname: 'proxy.example.org' };
-  assert.equal(mediaAddresses(req).hlsBase, 'https://proxy.example.org:8888');
-  assert.equal(mediaAddresses(req).whepBase, 'https://proxy.example.org:8889');
+  assert.equal(mediaAddresses(req).hlsBase, 'https://proxy.example.org:20004');
+  assert.equal(mediaAddresses(req).whepBase, 'https://proxy.example.org:20005');
   const proxyLinks = await (await fetch(base + '/api/media/sources/' + media.id + '/publish', { headers: { Host: 'upstream:4173', 'X-Forwarded-Host': 'public.example.org', 'X-Forwarded-Proto': 'https' } })).json();
-  assert.ok(proxyLinks.rtmp.startsWith('rtmp://public.example.org:1935/'));
+  assert.ok(proxyLinks.rtmp.startsWith('rtmp://public.example.org:20002/'));
   environment(t, { MEDIA_BROWSER_BASE: '/webrtc/', MEDIA_HLS_BASE: 'https://video.example.org/hls/' });
   assert.deepEqual(mediaAddresses(req), { publishHost: 'proxy.example.org', whepBase: '/webrtc', hlsBase: 'https://video.example.org/hls' });
 });
@@ -126,6 +126,28 @@ test('reverse proxy trust remains configurable by the deployer', t => {
   process.env.RESOLVER_TRUST_PROXY = 'false'; assert.equal(trustProxy(), false);
   process.env.RESOLVER_TRUST_PROXY = '2'; assert.equal(trustProxy(), 2);
   process.env.RESOLVER_TRUST_PROXY = 'loopback,10.0.0.0/8'; assert.deepEqual(trustProxy(), ['loopback', '10.0.0.0/8']);
+});
+
+test('media publishing and playback use the 20000 range and follow explicit port overrides', async t => {
+  const base = await serve(t);
+  const media = await (await fetch(base + '/api/media/sources', json({ name: 'Port mapping', kind: 'publish' }))).json();
+  const getLinks = () => fetch(base + '/api/media/sources/' + media.id + '/publish').then(r => r.json());
+  const links = await getLinks();
+  assert.equal(new URL(links.rtsp).port, '20001');
+  assert.equal(new URL(links.rtmp).port, '20002');
+  assert.equal(new URL(links.srt).port, '20003');
+  const req = { protocol: 'http', hostname: 'venue.example' };
+  assert.equal(new URL(mediaAddresses(req).hlsBase).port, '20004');
+  assert.equal(new URL(mediaAddresses(req).whepBase).port, '20005');
+  environment(t, { MEDIA_RTSP_PORT: '20101', MEDIA_RTMP_PORT: '20102', MEDIA_SRT_PORT: '20103', MEDIA_HLS_PORT: '20104', MEDIA_WEBRTC_PORT: '20105' });
+  const custom = await getLinks();
+  assert.equal(new URL(custom.rtsp).port, '20101');
+  assert.equal(new URL(custom.rtmp).port, '20102');
+  assert.equal(new URL(custom.srt).port, '20103');
+  assert.equal(new URL(mediaAddresses(req).hlsBase).port, '20104');
+  assert.equal(new URL(mediaAddresses(req).whepBase).port, '20105');
+  const input = await mediaInput({ id: 'a'.repeat(32), kind: 'publish' }, { key: 'fixture' });
+  assert.equal(new URL(input).port, '20001');
 });
 
 test('media worker accepts local and LAN sources by default and retains configurable restrictions', async () => {

@@ -10,6 +10,9 @@ const dir = path.join(root, 'deployment');
 const project = 'resolver-installer-' + process.pid;
 const volume = project + '-resolver-data';
 const media = process.argv.includes('--with-media');
+const tagIndex = process.argv.indexOf('--tag');
+const tag = tagIndex < 0 ? 'main' : process.argv[tagIndex + 1];
+assert.ok(tag, '--tag requires an image tag');
 const listener = net.createServer();
 await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
 const port = listener.address().port;
@@ -24,8 +27,23 @@ function run(command, args, extra = {}) {
   });
 }
 let installed = false;
+const blocker = project + '-port-blocker';
+let blockerStarted = false;
 try {
-  await run('bash', ['install.sh', 'install', '--dir', dir, '--port', String(port), '--bind', '127.0.0.1', '--project', project, '--yes', ...(media ? [] : ['--no-media'])]);
+  if (media) {
+    const image = 'ghcr.io/albert-li-sz/resolver-web:' + tag;
+    await run('docker', ['pull', image]);
+    await run('docker', ['run', '-d', '--name', blocker, '--no-healthcheck', '-p', '127.0.0.1:20004:9080', '--entrypoint', 'node', image, '-e', 'setTimeout(() => {}, 300000)']);
+    blockerStarted = true;
+    const failed = await run('bash', ['install.sh', '--dir', dir, '--port', String(port), '--bind', '127.0.0.1', '--project', project, '--tag', tag]).then(() => false, () => true);
+    assert.equal(failed, true, 'occupied HLS port must stop installation before application startup');
+    assert.deepEqual(await readdir(dir), [], 'failed preflight must leave a retryable empty directory');
+    assert.equal(execFileSync('docker', ['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project], { encoding: 'utf8' }).trim(), '');
+    assert.throws(() => execFileSync('docker', ['volume', 'inspect', volume], { stdio: 'ignore' }));
+    await run('docker', ['rm', '-f', blocker]);
+    blockerStarted = false;
+  }
+  await run('bash', ['install.sh', 'install', '--dir', dir, '--port', String(port), '--bind', '127.0.0.1', '--project', project, '--tag', tag, '--yes', ...(media ? [] : ['--no-media'])]);
   installed = true;
   const originalEnv = await readFile(path.join(dir, '.env'), 'utf8');
   assert.match(originalEnv, /^MEDIA_PUBLIC_HOST=$/m, 'installation must not require a fixed IP or domain');
@@ -49,10 +67,27 @@ try {
   const images = execFileSync('docker', [...compose, 'config', '--images'], { encoding: 'utf8' });
   assert.match(images, /resolver-web@sha256:/);
   if (media) assert.match(images, /resolver-web-media-worker@sha256:/);
+  const config = JSON.parse(execFileSync('docker', [...compose, 'config', '--format', 'json'], { encoding: 'utf8' }));
+  assert.equal(config.services.resolver.ports[0].target, 9080);
+  if (media) {
+    const ports = config.services.mediamtx.ports.map(p => `${p.published}/${p.protocol}`).sort();
+    assert.deepEqual(ports, ['20001/tcp', '20002/tcp', '20003/udp', '20004/tcp', '20005/tcp', '20006/tcp', '20006/udp']);
+    assert.ok(!config.services['media-worker'].ports, 'worker must remain internal');
+  }
+  await run('bash', [path.join(dir, 'uninstall.sh'), '--yes']);
+  assert.equal(execFileSync('docker', ['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project], { encoding: 'utf8' }).trim(), '');
+  execFileSync('docker', ['volume', 'inspect', volume], { stdio: 'ignore' });
+  assert.equal(await readFile(path.join(dir, '.env'), 'utf8'), originalEnv);
+  await run('bash', [path.join(dir, 'manage.sh'), 'start']);
+  await run(process.execPath, ['scripts/smoke.mjs', base, 'verify-restart'], env);
+  await run(process.execPath, ['scripts/smoke-platform.mjs', base, 'verify-restart'], env);
+  await run('bash', [path.join(dir, 'uninstall.sh'), '--yes', '--purge-data']);
+  assert.throws(() => execFileSync('docker', ['volume', 'inspect', volume], { stdio: 'ignore' }));
   await mkdir('test-results', { recursive: true });
-  await writeFile('test-results/installer-verification.json', JSON.stringify({ media, install: true, update: true, failedPullPreservesService: true, unchangedEnv: true, recovery: true, readableBackup: true, checkedAt: new Date().toISOString() }, null, 2));
-  console.log('PASS: installer deployment, failed pull, pinned images, data backup, update and persisted contest state');
+  await writeFile('test-results/installer-verification.json', JSON.stringify({ tag, media, install: true, update: true, portConflictPreflight: media, failedPullPreservesService: true, unchangedEnv: true, recovery: true, readableBackup: true, portLayout: 2, uninstallPreservesData: true, restartAfterUninstall: true, explicitPurge: true, checkedAt: new Date().toISOString() }, null, 2));
+  console.log('PASS: installer, port layout, update, backup, uninstall, data recovery and explicit purge');
 } finally {
+  if (blockerStarted) await run('docker', ['rm', '-f', blocker]).catch(error => console.error(error.message));
   if (installed) await run('docker', [...compose, 'down']).catch(error => console.error(error.message));
   else if (await readFile(path.join(dir, '.install-state')).then(() => true, () => false)) {
     await run('docker', [...compose, 'down']).catch(error => console.error(error.message));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
-const base = (process.argv[2] || "http://127.0.0.1:4173").replace(/\/$/, "");
+const base = (process.argv[2] || "http://127.0.0.1:9080").replace(/\/$/, "");
 const saved =
   process.env.PLATFORM_SMOKE_STATE || "/tmp/icpc-platform-smoke.json";
 const headers = {

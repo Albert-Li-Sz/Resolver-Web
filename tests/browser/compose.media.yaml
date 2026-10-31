@@ -3,13 +3,13 @@ services:
     build: ../..
     environment:
       HOST: 0.0.0.0
-      PORT: 4173
+      PORT: 9080
       RESOLVER_ADMIN_KEY: browser-regression-admin
       MEDIA_INTERNAL_KEY: isolated-browser-test-internal
-      MEDIA_WORKER_URL: http://media-worker:8091
+      MEDIA_WORKER_URL: http://media-worker:20007
       MEDIA_PUBLIC_HOST: mediamtx
-      MEDIA_BROWSER_BASE: http://mediamtx:8889
-      MEDIA_HLS_BASE: http://mediamtx:8888
+      MEDIA_BROWSER_BASE: http://mediamtx:20005
+      MEDIA_HLS_BASE: http://mediamtx:20004
     tmpfs: ["/app/data:uid=1000,gid=1000"]
   mediamtx:
     image: bluenviron/mediamtx:1.21.3
@@ -39,5 +39,5 @@ services:
       CI: '1'
       BROWSER_MEDIA_TEST: '1'
       BROWSER_EXTERNAL_APP: '1'
-      BROWSER_BASE_URL: http://resolver:4173
+      BROWSER_BASE_URL: http://resolver:9080
       BROWSER_OUTPUT_DIR: test-results/media

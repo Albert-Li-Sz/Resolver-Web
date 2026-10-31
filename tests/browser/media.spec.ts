@@ -63,10 +63,10 @@ test('gateway admits preview and program sources with independent audio without 
     for (let i = 0; i < 10; i++) {
       const created = await request.post('/api/media/sources', { headers, data: { name: `Reserved ${i + 1}`, kind: 'publish', role: i >= 8 ? 'audio' : 'camera' } });
       expect(created.ok()).toBe(true); const source = await created.json(); sources.push(source);
-      const ensured = await request.post('http://media-worker:8091/ensure', { headers: internal, data: { source } });
+      const ensured = await request.post('http://media-worker:20007/ensure', { headers: internal, data: { source } });
       expect(ensured.ok()).toBe(true);
     }
-    const jobs = await request.get('http://media-worker:8091/health', { headers: internal }).then(r => r.json());
+    const jobs = await request.get('http://media-worker:20007/health', { headers: internal }).then(r => r.json());
     expect(jobs.jobs).toHaveLength(10);
   } finally {
     for (const source of sources) await request.delete(`/api/media/sources/${source.id}`, { headers, data: { sourceRevision: 0 } });

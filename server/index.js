@@ -18,7 +18,7 @@ import { networkAccess, networkPolicy, trustProxy, securityHeadersEnabled } from
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const { version: VERSION } = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const PORT = Number(process.env.PORT || 4173);
+const PORT = Number(process.env.PORT || 9080);
 const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();

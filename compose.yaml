@@ -3,10 +3,10 @@ services:
     image: ghcr.io/albert-li-sz/resolver-web:${RESOLVER_IMAGE_TAG:-main}
     restart: unless-stopped
     ports:
-      - "${RESOLVER_BIND_ADDRESS:-0.0.0.0}:${RESOLVER_PORT:-4173}:4173"
+      - "${RESOLVER_BIND_ADDRESS:-0.0.0.0}:${RESOLVER_PORT:-9080}:9080"
     environment:
       HOST: 0.0.0.0
-      PORT: 4173
+      PORT: 9080
       RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}
       RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
       RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}

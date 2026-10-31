@@ -10,14 +10,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
-      - run: bash -n install.sh && shellcheck install.sh
-      - run: node scripts/smoke-installer.mjs --with-media
-      - if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: installer-verification
-          path: test-results/installer-verification.json
-          if-no-files-found: ignore
+      - run: bash -n install.sh && bash -n uninstall.sh && shellcheck install.sh uninstall.sh
+      - run: node --test tests/installer.test.js
   browser:
     uses: ./.github/workflows/browser.yml
   test:
@@ -42,7 +36,7 @@ jobs:
         with:
           node-version: 24
       - run: docker build -t resolver-web:test .
-      - run: docker run -d --name resolver-test -p 127.0.0.1:4180:4173 -e RESOLVER_ADMIN_KEY=ci-smoke-key -v resolver-test-data:/app/data resolver-web:test
+      - run: docker run -d --name resolver-test -p 127.0.0.1:4180:9080 -e RESOLVER_ADMIN_KEY=ci-smoke-key -v resolver-test-data:/app/data resolver-web:test
       - run: |
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4180/api/health; then exit 0; fi

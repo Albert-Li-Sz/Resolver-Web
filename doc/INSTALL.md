@@ -10,7 +10,7 @@
 curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/install.sh -o resolver-install.sh && bash resolver-install.sh
 ```
 
-默认监听 `0.0.0.0:4173`，无需填写固定 IP 或域名。可通过任意本机 IP 或指向本机的域名访问。默认目录为当前目录下的 `resolver-web`；自动生成管理员密码和媒体内部密钥，启动应用、MediaMTX 和媒体工作服务。
+默认监听 `0.0.0.0:9080`，无需填写固定 IP 或域名。可通过任意本机 IP 或指向本机的域名访问。默认目录为当前目录下的 `resolver-web`；自动生成管理员密码和媒体内部密钥，启动应用、MediaMTX 和媒体工作服务。
 
 无交互安装或指定目录：
 
@@ -18,13 +18,15 @@ curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/inst
 bash resolver-install.sh install --dir /opt/resolver-web --yes
 ```
 
-打开 `http://服务器IP:4173/`，用户名为 `admin`。查看生成的管理员密码：
+打开 `http://服务器IP:9080/`，用户名为 `admin`。查看生成的管理员密码：
 
 ```bash
 sed -n 's/^RESOLVER_ADMIN_KEY=//p' /opt/resolver-web/.env
 ```
 
-仅在本机使用时加 `--host 127.0.0.1 --bind 127.0.0.1`；不使用视频时加 `--no-media`。网页端口可通过 `--port 8080` 修改。`--host` 仅用于指定可选的媒体对外地址，不是访问白名单。完整媒体部署还需放行 TCP 8554、1935、8888、8889、8189，以及 UDP 8890、8189。
+仅在本机使用时加 `--host 127.0.0.1 --bind 127.0.0.1`；不使用视频时加 `--no-media`。网页端口可通过 `--port 8080` 修改，媒体端口可通过 `--media-port-base 20501` 整组改为 `20501–20506`。`--host` 仅用于指定可选的媒体对外地址，不是访问白名单。各端口的用途和按需开放范围见 [网络配置](NETWORK.md#端口与访问范围)。
+
+安装会先通过 Docker 检查端口能否绑定，再创建赛事数据和启动服务；冲突时不停止占用端口的其他服务。若在后续健康检查阶段失败，配置会保留，修正后运行 `manage.sh start`。
 
 默认使用已发布的 `main` 镜像，支持 amd64 / arm64。脚本校验应用和媒体镜像来自同一提交，再保存实际镜像摘要，避免重启时发生隐式升级。`main` 是四模块平台的场馆验收版；稳定版 `latest` 仍为原 v1.3.0。
 
@@ -38,7 +40,7 @@ bash /opt/resolver-web/manage.sh update
 
 1. 拉取并校验目标镜像。拉取失败或应用与媒体版本不一致时，现有服务继续运行。
 2. 备份配置，短暂停止应用，将赛事数据归档到 `backups/日期-进程号/data.tar.gz`。
-3. 使用新镜像启动，等待服务健康检查通过。配置、管理员密码、项目名、屏幕绑定与数据卷保持不变。
+3. 使用新镜像启动，等待服务健康检查通过。旧默认网页端口 `4173` 迁移到 `9080`，媒体端口迁移到 `20001–20006`；自定义网页端口和显式媒体代理地址保留。管理员密码、项目名、屏幕绑定与数据卷保持不变。
 4. 启动失败时回退旧镜像和配置，并重新启动。数据卷不会被清空，也不会自动用备份覆盖；更新期间写入的数据仍保留。
 
 更新会有短暂服务中断，请在比赛前或维护时段执行。每次更新保留一份备份，脚本不自动清理；数据量较大时请预留备份空间。
@@ -75,7 +77,27 @@ docker compose ps
 docker compose logs --tail 100 -f
 ```
 
-`.env` 保存地址、端口、密钥和媒体启用状态；`compose.yaml` 保存服务配置；`compose.override.yaml` 保存镜像摘要；`.install-state` 固定管理脚本的项目、数据卷和更新标签。更新保留 `.env` 和网关配置，并兼容迁移旧模板中固定媒体地址的四处配置；其他 Compose 设置原样保留。不要手动修改脚本管理的镜像摘要和安装记录。
+`.env` 保存地址、端口、密钥和媒体启用状态；`compose.yaml` 保存服务配置；`compose.override.yaml` 保存镜像摘要和环境变量映射；`.install-state` 固定管理脚本的项目、数据卷和更新标签。更新兼容迁移旧模板中的默认端口与固定媒体地址，并备份原 `.env` 和网关配置；启动失败时一并恢复。不要手动修改脚本管理的镜像摘要和安装记录。
+
+## 卸载
+
+安装目录自带独立卸载入口，也可以使用 `manage.sh uninstall`：
+
+```bash
+bash /opt/resolver-web/uninstall.sh
+```
+
+确认后仅移除本项目容器和网络，保留赛事数据卷、配置、备份和下载的镜像。无交互执行时加 `--yes`；需要恢复运行时执行 `bash /opt/resolver-web/manage.sh start`。
+
+同时删除赛事数据卷，需显式指定两个参数：
+
+```bash
+bash /opt/resolver-web/uninstall.sh --purge-data --yes
+```
+
+此操作会删除该项目数据卷中的全部赛事、绑定和恢复进度。安装目录中的配置、备份和镜像仍保留，其他 Docker 项目不受影响。删除数据后若需全新安装，请选择新的空目录；需要恢复历史赛事则使用保留的备份。
+
+旧安装没有 `uninstall.sh` 时，可重新下载 `resolver-install.sh`，直接执行 `bash resolver-install.sh uninstall --dir /opt/resolver-web`；无需先拉取镜像或更新服务。
 
 ## 已有部署与恢复
 
