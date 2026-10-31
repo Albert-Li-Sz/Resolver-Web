@@ -64,7 +64,7 @@ while [ $# -gt 0 ]; do
     --yes) ASSUME_YES=1; shift ;;
     --no-media) MEDIA=0; INSTALL_OPTIONS=1; shift ;;
     --dir|--host|--port|--bind|--project|--tag|--wait-timeout)
-      [ $# -ge 2 ] && [ -n "$2" ] || fail "$1 缺少参数"
+      if [ $# -lt 2 ] || [ -z "$2" ]; then fail "$1 缺少参数"; fi
       case "$1" in
         --dir) INSTALL_DIR=$2 ;;
         --host) PUBLIC_HOST=$2; INSTALL_OPTIONS=1 ;;
@@ -79,15 +79,15 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ "$COMMAND" = install ] || [ "$INSTALL_OPTIONS" = 0 ] || fail "地址、端口、项目及媒体选项只用于首次安装；后续请编辑安装目录的 .env。"
-[[ $WAIT_SECONDS =~ ^[1-9][0-9]*$ ]] && [ "$WAIT_SECONDS" -le 3600 ] || fail "等待时间须为 1–3600 秒"
-[[ $APP_PORT =~ ^[1-9][0-9]*$ ]] && [ "$APP_PORT" -le 65535 ] || fail "端口须为 1–65535"
+if ! [[ $WAIT_SECONDS =~ ^[1-9][0-9]*$ ]] || [ "$WAIT_SECONDS" -gt 3600 ]; then fail "等待时间须为 1–3600 秒"; fi
+if ! [[ $APP_PORT =~ ^[1-9][0-9]*$ ]] || [ "$APP_PORT" -gt 65535 ]; then fail "端口须为 1–65535"; fi
 if [ -n "$CHANNEL" ]; then [[ $CHANNEL =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || fail "镜像标签格式不正确"; fi
 
 if [ -n "$SCRIPT_FILE" ] && [ -f "$SCRIPT_FILE" ]; then
   SCRIPT_FILE="$(cd "$(dirname "$SCRIPT_FILE")" && pwd)/$(basename "$SCRIPT_FILE")"
 fi
 if [ "$COMMAND" = install ] || [ "$COMMAND" = update ]; then
-  [ -n "$SCRIPT_FILE" ] && [ -f "$SCRIPT_FILE" ] || fail "请先将脚本下载为文件，再用 bash 文件名运行，以便保存后续管理入口。"
+  if [ -z "$SCRIPT_FILE" ] || [ ! -f "$SCRIPT_FILE" ]; then fail "请先将脚本下载为文件，再用 bash 文件名运行，以便保存后续管理入口。"; fi
 fi
 if [ -z "$INSTALL_DIR" ]; then
   if [ -n "$SCRIPT_FILE" ] && [ -f "$(dirname "$SCRIPT_FILE")/.install-state" ]; then INSTALL_DIR=$(dirname "$SCRIPT_FILE")
