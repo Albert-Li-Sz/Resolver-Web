@@ -7,7 +7,7 @@
 - [共享赛事与 UI 验收](OLLAMA-VALIDATION.md) · [平台基础验收](PLATFORM-VALIDATION.md)：前期验证与历史限制。
 - [示例榜单](../examples/README.md)：可下载的练习事件流。
 
-说明书对应 `codex/production-platform` 四模块分支，不是原 v1.3.0 稳定发布镜像。截图来自 Browser 插件，赛事为合成练习数据；DOMjudge、Hydro 的示例连接表单未连接真实赛事。
+说明书对应 `main` 主分支的四模块平台，不是原 v1.3.0 稳定发布镜像。截图来自 Browser 插件，赛事为合成练习数据；DOMjudge、Hydro 的示例连接表单未连接真实赛事。
 
 ## 重建 PDF
 

@@ -132,6 +132,7 @@
     ]
   },
   "documentation": {
+    "commitSha": "6c0fdcf58c2c4c0c8da437fffaf6fc8cb19e878f",
     "source": "doc/使用指南.md",
     "pdf": "doc/使用指南.pdf",
     "pages": 22,

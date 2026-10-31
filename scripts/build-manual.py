@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path, default=ROOT / 'doc/使用指南.md')
 parser.add_argument('--output', type=Path, default=ROOT / 'doc/使用指南.pdf')
 parser.add_argument('--font', default=os.environ.get('RESOLVER_DOC_FONT'))
-parser.add_argument('--ref', default='codex/production-platform', help='GitHub ref used for relative PDF links')
+parser.add_argument('--ref', default='main', help='GitHub ref used for relative PDF links')
 args = parser.parse_args()
 source = args.source.read_text(encoding='utf-8')
 version = json.loads((ROOT / 'package.json').read_text())['version']
@@ -88,7 +88,7 @@ def footer(canvas, doc):
     canvas.setFillColor(muted)
     canvas.setFont('ManualCN', 8)
     canvas.drawString(margin, page_height - 23, 'ICPC 赛事制作台 | 操作说明书')
-    canvas.drawString(margin, 23, date + ' · 四模块分支')
+    canvas.drawString(margin, 23, date + ' · 四模块平台')
     canvas.drawRightString(page_width - margin, 23, str(doc.page))
     canvas.restoreState()
 
