@@ -87,7 +87,7 @@
     "Ten physical display computers and venue LAN/LED stability",
     "Four simultaneous WebRTC video outputs"
   ],
-  "remoteActionsRun": false,
+  "remoteActionsRun": true,
   "sourceSha256": {
     "frontend/src/Outputs.tsx": "1b147a17a6c56c9ce5f80bbadb10263d855372f45a276375a7b251bd6e681664",
     "frontend/src/Stage.tsx": "5a8767937c30f47c6829d7d93486bddd77b24b95577dcec630b6a60b7e81384c",
@@ -116,5 +116,34 @@
     "tests/browser/media.spec.ts": "4b89a15f48966a6fecc6adb7e8ecdd676a2d47b4930983cd1081e718ab2ffc4b",
     "playwright.config.ts": "553a42254073fe25b9d936cf78adebd038eaf0611862d8381051c8e7233de88c",
     ".github/workflows/browser.yml": "1b511704c7da127e04ff311fda1c3597e3d4b4a638e54f5c567086cb20ca6cff"
+  },
+  "remoteActions": {
+    "runId": 41177916178,
+    "commitSha": "6c0fdcf58c2c4c0c8da437fffaf6fc8cb19e878f",
+    "url": "https://github.com/Albert-Li-Sz/Resolver-Web/actions/runs/41177916178",
+    "conclusion": "success",
+    "verifiedAt": "2026-10-31T06:52:28.051Z",
+    "jobs": [
+      "Node 22",
+      "Node 24",
+      "Container restart",
+      "Pages and pixels",
+      "Real media"
+    ]
+  },
+  "documentation": {
+    "source": "doc/使用指南.md",
+    "pdf": "doc/使用指南.pdf",
+    "pages": 22,
+    "chapters": 16,
+    "figures": 9,
+    "allPagesRenderedAndReviewed": true,
+    "linksChecked": 16,
+    "shellBlocksChecked": 7,
+    "jsonExamplesChecked": 1,
+    "gitHubBlobsMatchLocal": true,
+    "sourceBlob": "92464d673a585e7d3f4981db953b3a60cf7da8ec",
+    "pdfBlob": "f6440700f0e09b08485b3a744a5f2ae98f14b856",
+    "pdfSha256": "717de01dea7f5264813c04a98ce30a2d480a3ca0e8c78fec1dae44ea257dab9b"
   }
 }

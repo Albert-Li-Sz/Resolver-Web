@@ -27,7 +27,9 @@
 
 环境锁定 Playwright 1.64.1、Chromium、Linux arm64 与指定 Noble 镜像摘要。Native 模板保留原启动参数；Live 固定比赛结束状态、软件合成参数和本地静态视频帧。视频各帧独立编码且解码哈希一致；等待实际视频就绪和占位层退出后再截图。固定时钟与媒体帧避免把实时画面变化当作回归。详细矩阵与人工更新流程见 [基线说明](../tests/browser/snapshots/README.md)。固定同环境遵循 [Playwright 官方建议](https://playwright.dev/docs/test-snapshots)。
 
-普通 CI 与发布工作流都调用浏览器门禁；发布镜像构建依赖通过结果。配置禁止自动创建基线，工作流不带更新参数；失败保留实际图、差异图、trace 与报告。本轮执行的是本地等效命令，尚未推送或运行远端 Actions。另实际移除一张测试基线验证负例：测试按预期失败且未自动生成基线，随后恢复原文件。
+普通 CI 与发布工作流都调用浏览器门禁；发布镜像构建依赖通过结果。配置禁止自动创建基线，工作流不带更新参数；失败保留实际图、差异图、trace 与报告。首轮采用本地等效命令，随后提交 `6c0fdcf` 推送至 `codex/production-platform`，[远端 Actions](https://github.com/Albert-Li-Sz/Resolver-Web/actions/runs/41177916178) 的 Node 22、Node 24、容器与重启、页面与像素、真实媒体五个任务全部通过。另实际移除一张测试基线验证负例：测试按预期失败且未自动生成基线，随后恢复原文件。
+
+图文说明书同步更新为 22 页、16 个章节，包含 DOMjudge 和 Hydro CCS API 接入、全部模块与现场操作。PDF 已全页渲染检查，目录书签、中文、代码及 9 张配图检查通过；本地文档链接、7 段 Shell 示例语法及媒体 JSON 示例校验通过。GitHub 上的 Markdown 和 PDF Git Blob 哈希与本地提交一致，Browser 实际打开在线说明书并确认全部配图加载。
 
 ## 真实媒体与容器
 
