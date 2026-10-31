@@ -145,7 +145,7 @@ load_state() {
   [[ $SAVED_CHANNEL =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || fail "安装记录中的标签无效。"
   CHANNEL=${CHANNEL:-$SAVED_CHANNEL}
   for file in .env compose.yaml compose.override.yaml deploy/mediamtx.yml; do
-    [ -f "$INSTALL_DIR/$file" ] || fail "缺少 $file，请从配置备份恢复。"
+    [ -f "$INSTALL_DIR/$file" ] || fail "缺少 ${file}，请从配置备份恢复。"
   done
 }
 cleanup() {
@@ -497,7 +497,7 @@ GATEWAY
   INSTALL_STARTED=1
   compose up -d --no-build --pull never --wait --wait-timeout "$WAIT_SECONDS"
   INSTALL_STARTED=0
-  say "安装完成：监听 $BIND_ADDRESS:$APP_PORT，可通过本机 IP 或域名访问。"
+  say "安装完成：监听 ${BIND_ADDRESS}:${APP_PORT}，可通过本机 IP 或域名访问。"
   say "本机访问：http://127.0.0.1:$APP_PORT/"
   say "管理员：admin；密码保存在 $INSTALL_DIR/.env 的 RESOLVER_ADMIN_KEY。"
   say "更新：bash \"$INSTALL_DIR/manage.sh\" update"
@@ -546,7 +546,7 @@ elif [ "$COMMAND" = uninstall ]; then
   compose down
   if [ "$PURGE_DATA" = 1 ]; then
     if docker volume inspect "$VOLUME" >/dev/null 2>&1; then docker volume rm "$VOLUME" >/dev/null; fi
-    say "已卸载并删除本项目赛事数据卷：$VOLUME。配置和备份仍保留在 $INSTALL_DIR；镜像未删除。"
+    say "已卸载并删除本项目赛事数据卷：${VOLUME}。配置和备份仍保留在 ${INSTALL_DIR}；镜像未删除。"
   else
     say "已卸载容器和网络；赛事数据、配置、备份和镜像已保留。恢复使用：bash \"$INSTALL_DIR/manage.sh\" start"
   fi

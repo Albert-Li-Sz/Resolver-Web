@@ -64,6 +64,7 @@ test('standalone installer creates a complete Compose deployment with protected 
   const f = await fixture(t);
   const result = f.install();
   assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /安装完成：监听 0\.0\.0\.0:9080/);
   const env = await readFile(path.join(f.dir, '.env'), 'utf8');
   const admin = env.match(/^RESOLVER_ADMIN_KEY=([a-f0-9]{64})$/m)?.[1];
   const internal = env.match(/^MEDIA_INTERNAL_KEY=([a-f0-9]{64})$/m)?.[1];
@@ -291,7 +292,9 @@ test('purging removes only the recorded project volume after explicit opt-in', a
   assert.notEqual(f.invoke(['uninstall', '--purge-data']).status, 0);
   assert.notEqual(f.invoke(['update', '--purge-data', '--yes']).status, 0);
   assert.deepEqual((await f.state()).volumes, ['installer-test-resolver-data']);
-  assert.equal(f.invoke(['uninstall', '--purge-data', '--yes']).status, 0);
+  const purged = f.invoke(['uninstall', '--purge-data', '--yes']);
+  assert.equal(purged.status, 0, purged.stderr);
+  assert.match(purged.stdout, /已卸载并删除本项目赛事数据卷：installer-test-resolver-data。/);
   assert.deepEqual((await f.state()).volumes, []);
   const removals = (await f.calls()).filter(c => c.args[0] === 'volume' && c.args[1] === 'rm');
   assert.deepEqual(removals.map(c => c.args[2]), ['installer-test-resolver-data']);
