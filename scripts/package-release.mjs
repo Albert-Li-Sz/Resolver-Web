@@ -83,7 +83,10 @@ try {
   await writeFile(path.join(temporary, "compose.yaml"), compose);
   await writeFile(
     path.join(temporary, ".env.example"),
-    (await readFile(new URL("deploy/platform.env.example", root), "utf8")) +
+    (await readFile(new URL("deploy/platform.env.example", root), "utf8"))
+      .split("\n")
+      .filter((line) => !/^(RESOLVER_IMAGE|MEDIA_WORKER_IMAGE)=/.test(line))
+      .join("\n") +
       `\nRESOLVER_IMAGE=${image}:v${version}\nMEDIA_WORKER_IMAGE=${image}-media-worker:v${version}\n`,
   );
   await writeFile(

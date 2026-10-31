@@ -1,5 +1,6 @@
 name: Release containers
 on:
+  workflow_dispatch:
   push:
     tags: ['v[0-9]*']
 permissions:
@@ -21,9 +22,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - name: Check release version
-        run: |
-          node --input-type=module -e "import {readFileSync} from 'node:fs'; const p=JSON.parse(readFileSync('package.json')); if(process.env.GITHUB_REF_NAME !== 'v'+p.version || !/^\d+\.\d+\.\d+$/.test(p.version)) throw new Error('tag/package version mismatch');"
+      - name: Check image target
+        run: node scripts/image-target.mjs
       - run: npm ci
       - run: npm run check
       - run: npm test
@@ -51,10 +51,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
-      - name: Image name
-        run: |
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Image metadata
+        run: node scripts/image-target.mjs
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -136,16 +134,13 @@ jobs:
       packages: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
-      - name: Image name
-        run: |
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Image metadata
+        run: node scripts/image-target.mjs
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
@@ -154,23 +149,45 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish version manifest
         run: |
-          docker buildx imagetools create -t "$IMAGE:$RELEASE_TAG" -t "$IMAGE:${RELEASE_TAG#v}" "$IMAGE:sha-${GITHUB_SHA}-amd64" "$IMAGE:sha-${GITHUB_SHA}-arm64"
-          docker buildx imagetools create -t "${IMAGE}-media-worker:$RELEASE_TAG" -t "${IMAGE}-media-worker:${RELEASE_TAG#v}" "${IMAGE}-media-worker:sha-${GITHUB_SHA}-amd64" "${IMAGE}-media-worker:sha-${GITHUB_SHA}-arm64"
+          docker buildx imagetools create -t "$IMAGE:$RELEASE_TAG" "$IMAGE:sha-${GITHUB_SHA}-amd64" "$IMAGE:sha-${GITHUB_SHA}-arm64"
+          docker buildx imagetools create -t "${IMAGE}-media-worker:$RELEASE_TAG" "${IMAGE}-media-worker:sha-${GITHUB_SHA}-amd64" "${IMAGE}-media-worker:sha-${GITHUB_SHA}-arm64"
       - name: Verify anonymous access and image metadata
-        run: node scripts/verify-registry.mjs --image "$IMAGE" --tag "$RELEASE_TAG" --revision "$GITHUB_SHA" --output dist/image-digests.json
-      - run: node scripts/verify-registry.mjs --image "${IMAGE}-media-worker" --tag "$RELEASE_TAG" --revision "$GITHUB_SHA" --output dist/media-image-digests.json
+        run: node scripts/verify-registry.mjs --image "$IMAGE" --tag "$RELEASE_TAG" --channel "$IMAGE_CHANNEL" --revision "$GITHUB_SHA" --output dist/image-digests.json
+      - run: node scripts/verify-registry.mjs --image "${IMAGE}-media-worker" --tag "$RELEASE_TAG" --channel "$IMAGE_CHANNEL" --revision "$GITHUB_SHA" --output dist/media-image-digests.json
       - name: Promote validated image
+        if: github.event_name == 'push'
         run: |
           DIGEST=$(node -p "require('./dist/image-digests.json').digest")
           VERSION=${RELEASE_TAG#v}
-          docker buildx imagetools create -t "$IMAGE:latest" -t "$IMAGE:${VERSION%.*}" -t "$IMAGE:${VERSION%%.*}" "$IMAGE@$DIGEST"
+          docker buildx imagetools create -t "$IMAGE:latest" -t "$IMAGE:${VERSION%.*}" -t "$IMAGE:${VERSION%%.*}" -t "$IMAGE:$VERSION" "$IMAGE@$DIGEST"
           node scripts/verify-registry.mjs --image "$IMAGE" --tag "$RELEASE_TAG" --revision "$GITHUB_SHA" --aliases "latest,${VERSION%.*},${VERSION%%.*},$VERSION"
           MEDIA_DIGEST=$(node -p "require('./dist/media-image-digests.json').digest")
-          docker buildx imagetools create -t "${IMAGE}-media-worker:latest" "${IMAGE}-media-worker@$MEDIA_DIGEST"
+          docker buildx imagetools create -t "${IMAGE}-media-worker:latest" -t "${IMAGE}-media-worker:$VERSION" "${IMAGE}-media-worker@$MEDIA_DIGEST"
           node scripts/verify-registry.mjs --image "${IMAGE}-media-worker" --tag "$RELEASE_TAG" --revision "$GITHUB_SHA" --aliases "latest,$VERSION"
+      - name: Promote validated main images
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          CURRENT_MAIN=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$CURRENT_MAIN" = "$GITHUB_SHA" || { echo "main has advanced; keep commit images without replacing the main alias"; exit 1; }
+          for SUFFIX in '' '-media-worker'; do
+            REPORT=dist/image-digests.json
+            if [ -n "$SUFFIX" ]; then REPORT=dist/media-image-digests.json; fi
+            DIGEST=$(node -p "require('./$REPORT').digest")
+            docker buildx imagetools create -t "$IMAGE$SUFFIX:main" "$IMAGE$SUFFIX@$DIGEST"
+            node scripts/verify-registry.mjs --image "$IMAGE$SUFFIX" --tag "$RELEASE_TAG" --channel main --revision "$GITHUB_SHA" --aliases main
+          done
+      - name: Save image digests
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: image-digests
+          path: dist/*image-digests.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Package deployment files and checksums
+        if: github.event_name == 'push'
         run: node scripts/package-release.mjs
       - name: Publish GitHub Release
+        if: github.event_name == 'push'
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/release/* --clobber --repo "$GITHUB_REPOSITORY"

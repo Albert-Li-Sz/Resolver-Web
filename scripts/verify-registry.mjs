@@ -2,14 +2,13 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { imageTarget } from './image-target.mjs';
 
 const options = Object.fromEntries(Array.from({ length: (process.argv.length - 2) / 2 }, (_, i) => [process.argv[2 + i * 2].replace(/^--/, ''), process.argv[3 + i * 2]]));
 const image = options.image || 'ghcr.io/albert-li-sz/resolver-web';
-const version = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
-const tag = options.tag || `v${version}`;
+const packageVersion = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
+const { version, tag } = imageTarget({ version: packageVersion, revision: options.revision, channel: options.channel || 'release', tag: options.tag });
 assert.match(image, /^ghcr\.io\/[a-z0-9_.-]+\/[a-z0-9_.-]+$/);
-assert.match(options.revision || '', /^[a-f0-9]{40}$/);
-assert.equal(tag, `v${version}`);
 const repository = image.slice('ghcr.io/'.length);
 const sha = (body) => `sha256:${createHash('sha256').update(body).digest('hex')}`;
 const accept = 'application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json';

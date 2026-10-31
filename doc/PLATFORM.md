@@ -9,10 +9,15 @@
 ```bash
 cp deploy/platform.env.example .env
 # 设置管理员密码、随机媒体内部密钥、服务器场馆局域网 IP。
-docker compose --env-file .env -f compose.platform.yaml up -d --build
+docker compose --env-file .env -f compose.platform.yaml pull
+docker compose --env-file .env -f compose.platform.yaml up -d --no-build
 ```
 
 访问 `http://服务器IP:4173/`。媒体需要场馆设备可访问 TCP 8554、1935、8888、8889、8189，UDP 8890、8189。WebRTC 默认使用场馆 IP；无需公网穿透或 TURN。
+
+默认镜像为 `ghcr.io/albert-li-sz/resolver-web:main` 与 `ghcr.io/albert-li-sz/resolver-web-media-worker:main`，均支持 `linux/amd64`、`linux/arm64`。这是主分支的场馆验收版；OBS 与真实场馆验收完成前，稳定版 `latest` 保持 v1.3.0。固定部署时，将 `.env` 中两个镜像的标签同时改为 `sha-完整提交号`，或使用构建产物 `image-digests` 中的摘要。升级旧 `.env` 时补上这两个镜像字段，否则源码 Compose 会继续使用本地镜像名。需要源码构建时执行 `up -d --build`。
+
+镜像通过 GitHub Actions 的 **Release containers → Run workflow → main** 手动构建。每次先通过 Node 22/24、页面、像素、真实媒体测试，再在两种原生架构上构建应用和媒体镜像，验证启动及重启，匿名检查 GHCR 后更新 `main`。提交号标签用于固定部署；此流程不创建稳定版本或改动 `latest`。GitHub 版本标签发布流程继续用于正式版本。
 
 数据保存在 `resolver-data` 命名卷。升级需保留原 Compose 项目名与命名卷；不要使用 `down -v`。从 v1.3.0 升级时保留管理员密码，并补充 `MEDIA_INTERNAL_KEY`、`MEDIA_PUBLIC_HOST`；发布包的镜像覆盖字段为 `RESOLVER_IMAGE` 和 `MEDIA_WORKER_IMAGE`。已有单服务部署的 Resolver 数据目录可继续使用，新平台数据单独存放在 `data/platform/`。媒体控制接口和 FFmpeg 工作服务只在容器网络内开放，不挂载 Docker socket。
 

@@ -14,10 +14,13 @@
 ```bash
 cp deploy/platform.env.example .env
 # 填写管理员密码、随机媒体内部密钥、服务器局域网 IP。
-docker compose --env-file .env -f compose.platform.yaml up -d --build
+docker compose --env-file .env -f compose.platform.yaml pull
+docker compose --env-file .env -f compose.platform.yaml up -d --no-build
 ```
 
 打开 `http://服务器IP:4173/`。管理端用户名为 `admin`，密码为 `.env` 中的 `RESOLVER_ADMIN_KEY`。升级请保留原项目名及 `resolver-data` 数据卷。
+
+默认使用 GitHub Actions 构建的 `main` 镜像，应用与媒体工作服务均支持 amd64 / arm64。`main` 是四模块平台的场馆验收版；稳定版 `latest` 仍为 v1.3.0。需要固定版本时，将两个镜像都改为同一 `sha-完整提交号` 标签。源码构建可使用 `up -d --build`。
 
 本地开发：
 

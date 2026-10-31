@@ -48,6 +48,9 @@ test("deployment package includes both pinned images, gateway configuration, gui
   const env = await readFile(path.join(unpack, ".env.example"), "utf8");
   assert.match(env, new RegExp("RESOLVER_IMAGE=" + image + ":v" + version));
   assert.match(env, /MEDIA_WORKER_IMAGE=/);
+  assert.equal(env.match(/^RESOLVER_IMAGE=/gm)?.length, 1);
+  assert.equal(env.match(/^MEDIA_WORKER_IMAGE=/gm)?.length, 1);
+  assert.doesNotMatch(env, /:main\b/);
   assert.match(
     await readFile(path.join(unpack, "deploy/mediamtx.yml"), "utf8"),
     /authHTTPAddress:/,
