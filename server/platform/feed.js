@@ -86,6 +86,41 @@ export async function openFeed(source, { signal, cursor } = {}) {
     req.on("error", reject);
   });
 }
+export async function probeFeed(source, { signal, open = openFeed } = {}) {
+  const stream = await open(source, { signal });
+  let pending = "";
+  try {
+    for await (const chunk of stream) {
+      pending += chunk;
+      if (pending.length > 2 * 1024 * 1024)
+        throw inputError("来源响应不是有效事件流", 502);
+      let index;
+      while ((index = pending.indexOf("\n")) >= 0) {
+        const line = pending.slice(0, index).trim();
+        pending = pending.slice(index + 1);
+        if (!line) continue;
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          throw inputError("来源响应不是有效 NDJSON 事件流", 502);
+        }
+        if (event === null) continue;
+        if (!event || typeof event !== "object" || !event.type)
+          throw inputError("来源响应缺少事件类型", 502);
+        return { ok: true };
+      }
+    }
+    if (pending.trim()) {
+      try {
+        if (JSON.parse(pending)?.type) return { ok: true };
+      } catch {}
+    }
+    throw inputError("来源没有返回有效事件", 502);
+  } finally {
+    stream.destroy();
+  }
+}
 export class FeedManager {
   constructor(store, { open = openFeed } = {}) {
     this.open = open;
@@ -101,7 +136,7 @@ export class FeedManager {
     if (this.current?.signature === signature) return;
     this.current?.controller.abort();
     this.current = null;
-    if (!w?.source) {
+    if (!w?.source || w.source.enabled === false) {
       this.status = { state: "stopped" };
       return;
     }

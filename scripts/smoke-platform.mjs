@@ -44,6 +44,7 @@ if (process.argv[3] === "verify-restart") {
     ),
   });
   assert.equal(w.contest.teams.length, 18);
+  await request(`/workspaces/${w.id}/activate`, {});
   const identity = await request("/displays/register", {});
   const paired = await request("/displays/pair", {
     code: identity.code,

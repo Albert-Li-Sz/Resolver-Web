@@ -65,6 +65,7 @@ test("public contest removes frozen verdicts before computing standings and firs
 test("workspace snapshots, source secrets and broadcast preview stay independent across restarts", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ contest });
+  await s.activate(w.id);
   const snapshot = structuredClone(s.workspace(w.id).contest);
   await s.updateWorkspace(w.id, {
     revision: 0,
@@ -174,6 +175,7 @@ test("multi-display commands share exact start time and reject conflicting parti
 test("incremental events handle duplicates, rejudging and deletions with persisted cursor", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ name: "Feed" });
+  await s.activate(w.id);
   const events = [
     {
       type: "contest",
@@ -227,6 +229,7 @@ test("incremental events handle duplicates, rejudging and deletions with persist
 test("stream manager processes split lines and stops the previous source on workspace changes", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ name: "Streaming" });
+  await s.activate(w.id);
   await s.updateWorkspace(w.id, {
     revision: 0,
     source: { url: "http://example.com/events", mode: "feed" },
@@ -282,6 +285,7 @@ test("playlist and scene validation rejects unknown templates and clamps output 
 test("changing a source rejects buffered events from the previous connection", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ name: "Source race" });
+  await s.activate(w.id);
   await s.updateWorkspace(w.id, {
     revision: 0,
     source: { url: "http://example.com/old", mode: "feed" },
@@ -302,6 +306,7 @@ test("changing a source rejects buffered events from the previous connection", a
 test("failed platform commit keeps the previous complete workspace checkpoint across restart", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ contest });
+  await s.activate(w.id);
   const file = path.join(s.directory, "state.json");
   await rename(file, file + ".saved");
   await mkdir(file);
@@ -342,6 +347,7 @@ test("modern null-data deletions remove records and contest clock metadata survi
   const w = await s.createWorkspace({
     feed: "null\n" + events.map((e) => JSON.stringify(e)).join("\n"),
   });
+  await s.activate(w.id);
   await s.ingest(w.id, [{ type: "teams", id: "b", token: "5", data: null }]);
   assert.deepEqual(
     s.workspace().contest.teams.map((t) => t.id),
@@ -360,6 +366,7 @@ test("workspace assets survive incoming events and enter isolated Resolver snaps
       "\n" +
       JSON.stringify({ type: "teams", data: { id: "a", name: "A" } }),
   });
+  await s.activate(w.id);
   await s.updateWorkspace(w.id, {
     revision: 0,
     assets: {
@@ -411,6 +418,7 @@ test("repeated pause and resume preserve playback phase", async (t) => {
 test("malformed event batches fail without changing the persisted cursor or revision", async (t) => {
   const s = await storeFor(t);
   const w = await s.createWorkspace({ contest });
+  await s.activate(w.id);
   for (const events of [{}, [null], ["invalid"]])
     await assert.rejects(s.ingest(w.id, events), (e) => e.status === 400);
   assert.equal(s.workspace(w.id).revision, 0);

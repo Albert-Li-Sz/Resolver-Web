@@ -49,3 +49,11 @@ worker distribution retains FFmpeg's GPL notices. Package source and build
 recipes: https://gitlab.alpinelinux.org/alpine/aports/-/tree/master/community/ffmpeg
 and https://ffmpeg.org/download.html. MediaMTX and FFmpeg are separate services
 and their original licenses continue to apply.
+
+## Noto Sans SC
+
+Chinese presentation text embeds the unmodified Noto Sans SC variable font from
+[Google Fonts](https://github.com/google/fonts/tree/main/ofl/notosanssc).
+Copyright 2014–2021 Adobe. Licensed under SIL Open Font License 1.1;
+see `public/licenses/noto-sans-sc.txt`. Source metadata and SHA-256 are recorded
+in `public/assets/font/noto-sans-sc.json`.

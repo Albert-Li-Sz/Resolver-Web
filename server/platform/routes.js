@@ -1,6 +1,7 @@
 import express from "express";
-import { PlatformStore } from "./store.js";
-import { FeedManager, openFeed, checkedURL } from "./feed.js";
+import { PlatformStore, validateSource } from "./store.js";
+import { ResolverExports } from "./resolver-export.js";
+import { FeedManager, openFeed, checkedURL, probeFeed } from "./feed.js";
 import {
   clone,
   id,
@@ -15,10 +16,15 @@ import {
 } from "./model.js";
 import { inputError } from "../lib/limits.js";
 import { equalSecret } from "../lib/access.js";
+import { outputProfile } from "../../public/js/output-profile.js";
+import { readHealth, MediaMonitor } from "./health.js";
+import { currentContent } from "./emergency.js";
 export async function createPlatform() {
   const store = new PlatformStore();
   await store.restore();
   const feeds = new FeedManager(store);
+  const exports = new ResolverExports(store);
+  const mediaMonitor = new MediaMonitor(store);
   feeds.reconcile();
   const router = express.Router();
   const rates = new Map();
@@ -102,6 +108,10 @@ export async function createPlatform() {
   );
   router.get("/time", (_q, r) => r.json({ serverTime: Date.now() }));
   router.get("/workspaces", (_q, r) => r.json(store.admin().workspaces));
+  router.get(
+    "/workspaces/:id",
+    wrap((q, r) => r.json(store.workspaceAdmin(store.workspace(q.params.id)))),
+  );
   router.post(
     "/workspaces",
     wrap(async (q, r) =>
@@ -126,11 +136,12 @@ export async function createPlatform() {
     "/workspaces/:id/activate",
     wrap(async (q, r) =>
       r.json(
-        await store.change(() => {
-          store.workspace(q.params.id);
-          store.state.activeWorkspaceId = q.params.id;
-          return { ok: true };
-        }),
+        await store.activate(
+          q.params.id,
+          q.body.revision,
+          q.body.currentWorkspaceId,
+          q.body.expectedContextRevision,
+        ),
       ),
     ),
   );
@@ -150,17 +161,67 @@ export async function createPlatform() {
     "/workspaces/:id/test",
     wrap(async (q, r) => {
       const w = store.workspace(q.params.id);
-      if (!w.source) throw inputError("请先保存来源");
+      if (!q.body.source && !w.source) throw inputError("请先填写来源");
+      const source = q.body.source
+        ? validateSource({
+            ...q.body.source,
+            password: q.body.source.password ?? w.source?.password,
+            bearer: q.body.source.bearer ?? w.source?.bearer,
+          })
+        : w.source;
       const c = new AbortController();
       const t = setTimeout(() => c.abort(), 10000);
       try {
-        const s = await openFeed(w.source, { signal: c.signal });
-        s.destroy();
-        r.json({ ok: true });
+        r.json(await probeFeed(source, { signal: c.signal }));
       } finally {
         clearTimeout(t);
       }
     }),
+  );
+  router.post(
+    "/workspaces/:id/resolver-exports",
+    wrap((q, r) => {
+      limit(q, "resolver-export", 12);
+      r.status(202).json(exports.start(q.params.id));
+    }),
+  );
+  router.get(
+    "/workspaces/:id/resolver-exports/:job",
+    wrap((q, r) => r.json(exports.status(q.params.job, q.params.id))),
+  );
+  router.delete(
+    "/workspaces/:id/resolver-exports/:job",
+    wrap((q, r) => r.json(exports.cancel(q.params.job, q.params.id))),
+  );
+  router.get(
+    "/workspaces/:id/resolver-exports/:job/feed",
+    wrap(async (q, r) => {
+      const { file } = await exports.archive(q.params.id, q.params.job);
+      r.set("Cache-Control", "no-store");
+      r.download(file, "event-feed.ndjson");
+    }),
+  );
+  router.put(
+    "/broadcast/presets/:id",
+    wrap(async (q, r) =>
+      r.json(
+        await store.change(() => {
+          const p = store.state.broadcast.presets?.find(
+            (p) => p.id === q.params.id,
+          );
+          if (!p) throw inputError("预设不存在", 404);
+          guardWorkspace(q);
+          store.check(q.body.revision, p.revision || 0);
+          Object.assign(p, {
+            name: text(q.body.name) || p.name,
+            scene: scene(q.body.scene),
+            workspaceId: sceneScope(q.body.scene),
+            revision: (p.revision || 0) + 1,
+          });
+          return p;
+        }),
+      ),
+    ),
   );
   router.put(
     "/broadcast/preview",
@@ -175,6 +236,23 @@ export async function createPlatform() {
       ),
     ),
   );
+  router.put(
+    "/broadcast/output-settings",
+    wrap(async (q, r) =>
+      r.json(
+        await store.change(() => {
+          const b = store.state.broadcast;
+          store.check(q.body.revision, b.outputRevision || 0);
+          if (!["program", "overlay"].includes(q.body.type))
+            throw inputError("输出类型无效");
+          b.outputProfiles ||= {};
+          b.outputProfiles[q.body.type] = outputProfile(q.body.outputProfile);
+          b.outputRevision = (b.outputRevision || 0) + 1;
+          return { revision: b.outputRevision };
+        }),
+      ),
+    ),
+  );
   router.post(
     "/broadcast/presets",
     wrap(async (q, r) =>
@@ -183,8 +261,11 @@ export async function createPlatform() {
           const p = {
             id: id(),
             name: text(q.body.name) || "布局预设",
+            revision: 0,
             scene: scene(q.body.scene),
+            workspaceId: sceneScope(q.body.scene),
           };
+          guardWorkspace(q);
           store.state.broadcast.presets ??= [];
           if (store.state.broadcast.presets.length >= 50)
             throw inputError("布局预设最多 50 个");
@@ -196,24 +277,66 @@ export async function createPlatform() {
   );
   router.post(
     "/broadcast/take",
-    wrap(async (q, r) =>
-      r.json(
-        await store.change(() => {
-          store.check(q.body.revision, store.state.broadcast.revision);
-          store.state.broadcast.program = clone(store.state.broadcast.preview);
-          store.state.broadcast.revision++;
-          return store.state.broadcast;
-        }),
-      ),
-    ),
+    wrap(async (q, r) => r.json(await store.takeBroadcast(q.body))),
+  );
+  router.post(
+    "/broadcast/standby",
+    wrap(async (q, r) => r.json(await store.standbyBroadcast(q.body))),
+  );
+  router.post(
+    "/broadcast/rollback",
+    wrap(async (q, r) => r.json(await store.rollbackBroadcast(q.body))),
+  );
+  router.post(
+    "/broadcast/heartbeat",
+    wrap((q, r) => {
+      output(q);
+      const clientId = q.body.clientId;
+      if (
+        !/^[a-f0-9]{32}$/.test(clientId) ||
+        !["program", "overlay"].includes(q.body.kind)
+      )
+        throw inputError("输出身份无效");
+      for (const [key, value] of store.outputs)
+        if (Date.now() - value.seenAt > 300000) store.outputs.delete(key);
+      if (!store.outputs.has(clientId) && store.outputs.size >= 100)
+        throw inputError("输出连接数量已达上限", 429);
+      const thumbnail = q.body.thumbnail;
+      if (
+        thumbnail &&
+        (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(thumbnail) ||
+          thumbnail.length > 180000)
+      )
+        throw inputError("缩略图无效");
+      store.outputs.set(clientId, {
+        clientId,
+        kind: q.body.kind,
+        seenAt: Date.now(),
+        health: readHealth(q.body.health),
+        thumbnail: thumbnail || null,
+      });
+      store.emit();
+      r.json({ serverTime: Date.now() });
+    }),
   );
   router.post(
     "/broadcast/rotate-token",
-    wrap(async (_q, r) =>
+    wrap(async (q, r) =>
       r.json(
         await store.change(() => {
+          if (q.body.tokenRevision !== undefined)
+            store.check(
+              q.body.tokenRevision,
+              store.state.broadcast.tokenRevision || 0,
+            );
           store.state.broadcast.token = secret();
-          return { token: store.state.broadcast.token };
+          store.state.broadcast.tokenRevision =
+            (store.state.broadcast.tokenRevision || 0) + 1;
+          store.outputs.clear();
+          return {
+            token: store.state.broadcast.token,
+            tokenRevision: store.state.broadcast.tokenRevision,
+          };
         }),
       ),
     ),
@@ -301,6 +424,7 @@ export async function createPlatform() {
       )
         throw inputError("缩略图无效");
       const before = store.runtime.get(d.id) || {};
+      const health = readHealth(q.body.health);
       const ack = Number(q.body.revision);
       if (!Number.isInteger(ack) || ack < -1 || ack > d.revision)
         throw inputError("屏幕回执版本无效");
@@ -316,6 +440,7 @@ export async function createPlatform() {
           Number(q.body.appliedAt) ||
           (ack === before.appliedRevision ? before.appliedAt : Date.now()),
         clockOffset: Number(q.body.clockOffset) || 0,
+        health: q.body.health === undefined ? before.health || null : health,
       });
       store.emit();
       r.json({ serverTime: Date.now() });
@@ -342,6 +467,21 @@ export async function createPlatform() {
       r.json(await store.pair(q.body));
     }),
   );
+  router.put(
+    "/displays/:id/settings",
+    wrap(async (q, r) =>
+      r.json(
+        await store.change(() => {
+          const d = device(q);
+          if (!d.paired) throw inputError("展示端尚未配对", 403);
+          store.check(q.body.revision, d.revision);
+          d.outputProfile = outputProfile(q.body.outputProfile);
+          d.revision++;
+          return store.deviceState(d);
+        }),
+      ),
+    ),
+  );
   router.post(
     "/displays/command",
     wrap(async (q, r) => r.json(await store.command(q.body))),
@@ -354,9 +494,36 @@ export async function createPlatform() {
           const p = {
             id: id(),
             name: text(q.body.name) || "节目单",
+            revision: 0,
             ...program(q.body),
+            workspaceId: q.body.items?.some((item) => item.teamId)
+              ? store.state.activeWorkspaceId || ""
+              : "",
           };
+          guardWorkspace(q);
           store.state.plans.push(p);
+          return p;
+        }),
+      ),
+    ),
+  );
+  router.put(
+    "/presentations/plans/:id",
+    wrap(async (q, r) =>
+      r.json(
+        await store.change(() => {
+          const p = store.state.plans.find((p) => p.id === q.params.id);
+          if (!p) throw inputError("节目单不存在", 404);
+          guardWorkspace(q);
+          store.check(q.body.revision, p.revision || 0);
+          Object.assign(p, {
+            name: text(q.body.name) || p.name,
+            ...program(q.body),
+            workspaceId: q.body.items?.some((item) => item.teamId)
+              ? store.state.activeWorkspaceId || ""
+              : "",
+            revision: (p.revision || 0) + 1,
+          });
           return p;
         }),
       ),
@@ -379,7 +546,12 @@ export async function createPlatform() {
     "/media/sources",
     wrap(async (q, r) => {
       const raw = q.body;
-      const source = await mediaSource({ ...raw, workspaceId: raw.teamId ? (raw.workspaceId || store.state.activeWorkspaceId) : "" });
+      const source = await mediaSource({
+        ...raw,
+        workspaceId: raw.teamId
+          ? raw.workspaceId || store.state.activeWorkspaceId
+          : "",
+      });
       r.status(201).json(
         await store.change(() => {
           if (store.state.media.length >= 1000)
@@ -402,10 +574,23 @@ export async function createPlatform() {
       });
       next.id = old.id;
       next.token = old.token;
+      next.revision = (old.revision || 0) + 1;
       r.json(
         await store.change(() => {
-          store.check(q.body.revision);
           const index = store.state.media.findIndex((m) => m.id === old.id);
+          if (index < 0) throw inputError("来源已被移除", 404);
+          if (q.body.expectedBroadcastRevision !== undefined)
+            store.check(q.body.expectedBroadcastRevision, store.state.broadcast.revision);
+          if (q.body.sourceRevision !== undefined)
+            store.check(
+              q.body.sourceRevision,
+              store.state.media[index].revision || 0,
+            );
+          else store.check(q.body.revision);
+          const current = store.state.media[index];
+          const changed = ["kind", "url", "username", "password", "allowPrivate", "transcode"].some(key => next[key] !== current[key]);
+          next.streamRevision = (current.streamRevision || 0) + (changed ? 1 : 0);
+          next.revision = (store.state.media[index].revision || 0) + 1;
           store.state.media[index] = next;
           return { ...next, password: undefined, token: undefined };
         }),
@@ -414,16 +599,21 @@ export async function createPlatform() {
   );
   router.delete(
     "/media/sources/:id",
-    wrap(async (q, r) =>
-      r.json(
-        await store.change(() => {
+    wrap(async (q, r) => {
+      const removed = await store.change(() => {
+          const old = store.state.media.find((x) => x.id === q.params.id);
+          if (q.body?.expectedBroadcastRevision !== undefined)
+            store.check(q.body.expectedBroadcastRevision, store.state.broadcast.revision);
+          if (q.body?.sourceRevision !== undefined && old)
+            store.check(q.body.sourceRevision, old.revision || 0);
           store.state.media = store.state.media.filter(
             (x) => x.id !== q.params.id,
           );
-          return { ok: true };
-        }),
-      ),
-    ),
+          return old || null;
+        });
+      if (removed) await worker("drop", { source: { id: removed.id } }).catch(() => {});
+      r.json({ ok: true });
+    }),
   );
   router.post(
     "/media/sources/:id/test",
@@ -480,20 +670,24 @@ export async function createPlatform() {
     wrap(async (q, r) => {
       if (q.get("X-Display-Id")) {
         const d = store.device(q.get("X-Display-Id"), q.get("X-Display-Token"));
+        const current = currentContent(d, store.now());
         if (
           !q.body?.release &&
-          (!d.paired || !d.program.items.some((i) => i.type === "live"))
+          (!d.paired ||
+            current.mode === "standby" ||
+            !current.program.items.some((i) => i.type === "live"))
         )
           throw inputError("屏幕未获准播放 Live", 403);
       } else if (q.get("X-Output-Token")) output(q);
       else throw inputError("缺少输出身份", 403);
       if (
         !q.body?.release &&
-        !sceneMediaIds(
-          store.state.broadcast.program,
-          store.state.media,
-          store.state.activeWorkspaceId,
-        ).includes(q.params.id)
+        (store.state.broadcast.mode === "standby" ||
+          !sceneMediaIds(
+            store.state.broadcast.program,
+            store.state.media,
+            store.state.activeWorkspaceId,
+          ).includes(q.params.id))
       )
         throw inputError("来源尚未上屏", 403);
       await grantMedia(q, r);
@@ -519,7 +713,22 @@ export async function createPlatform() {
     if (rates.size > 1000)
       for (const [k, v] of rates) if (v.until < now) rates.delete(k);
   }
-  return { router, store, feeds };
+  function guardWorkspace(q) {
+    if (
+      q.body.workspaceId !== undefined &&
+      q.body.workspaceId !== store.state.activeWorkspaceId
+    )
+      throw inputError("当前赛事已切换，请重新选择队伍后保存", 409);
+  }
+  function sceneScope(raw) {
+    const value = scene(raw);
+    return value.teamIds.some(Boolean) ||
+      value.mediaIds.some(Boolean) ||
+      value.audioMediaId
+      ? store.state.activeWorkspaceId || ""
+      : "";
+  }
+  return { router, store, feeds, exports, mediaMonitor };
 }
 async function mediaSource(raw) {
   const kind = raw.kind === "publish" ? "publish" : "pull";
@@ -532,9 +741,11 @@ async function mediaSource(raw) {
       ? raw.role
       : "camera",
     kind,
+    revision: 0,
+    streamRevision: 0,
     url: kind === "pull" ? text(raw.url, 4096) : "",
     username: text(raw.username),
-    password: text(raw.password, 2000),
+    password: String(raw.password ?? "").slice(0, 2000),
     allowPrivate: raw.allowPrivate === true,
     transcode: raw.transcode === true,
     fallbackId: text(raw.fallbackId, 100),

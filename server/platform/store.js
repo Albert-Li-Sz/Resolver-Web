@@ -4,6 +4,14 @@ import { mkdir, appendFile, readFile, rm } from "node:fs/promises";
 import { atomicWrite, DATA_DIR, readJSONFile } from "../lib/files.js";
 import { normalizeContest, parseEventFeed } from "../lib/engine.js";
 import { inputError, LIMITS, jsonBytes } from "../lib/limits.js";
+import { outputProfile } from "../../public/js/output-profile.js";
+import {
+  contentOf,
+  currentContent,
+  previousContent,
+  scheduleContent,
+} from "./emergency.js";
+import { healthState } from "./health.js";
 import {
   id,
   secret,
@@ -31,16 +39,22 @@ export class PlatformStore {
     this.records = new Map();
     this.recordSizes = new Map();
     this.runtime = new Map();
+    this.outputs = new Map();
+    this.mediaHealth = { status: "unconfigured", jobs: [] };
     this.state = {
       version: 1,
       revision: 0,
       activeWorkspaceId: null,
+      contextRevision: 0,
       workspaces: [],
       broadcast: {
         preview: sceneDefault(),
         program: sceneDefault(),
         revision: 0,
         token: secret(),
+        tokenRevision: 0,
+        mode: "program",
+        previousProgram: null,
       },
       displays: [],
       plans: [],
@@ -61,6 +75,19 @@ export class PlatformStore {
     for (const media of this.state.media)
       if (media.teamId && !media.workspaceId)
         media.workspaceId = this.state.activeWorkspaceId || "";
+    for (const preset of this.state.broadcast.presets || [])
+      if (preset.workspaceId === undefined)
+        preset.workspaceId =
+          preset.scene.teamIds?.some(Boolean) ||
+          preset.scene.mediaIds?.some(Boolean) ||
+          preset.scene.audioMediaId
+            ? this.state.activeWorkspaceId || ""
+            : "";
+    for (const plan of this.state.plans)
+      if (plan.workspaceId === undefined)
+        plan.workspaceId = plan.items.some((item) => item.teamId)
+          ? this.state.activeWorkspaceId || ""
+          : "";
     let total = 0;
     for (const w of this.state.workspaces) {
       if (
@@ -172,10 +199,12 @@ export class PlatformStore {
         revision: 0,
         savedAt: this.now(),
         cursor: null,
+        presentationLocale: presentationLocale(
+          raw.presentationLocale ?? "zh-CN",
+        ),
       };
       await this.writeWorkspace(w);
       this.state.workspaces.push({ id: w.id, name: w.name });
-      this.state.activeWorkspaceId = w.id;
       return this.workspaceAdmin(w);
     });
   }
@@ -201,18 +230,88 @@ export class PlatformStore {
   workspaceContest(w) {
     const contest = clone(w.contest);
     if (w.assets?.logo) contest.logo = w.assets.logo;
-    for (const team of contest.teams)
-      Object.assign(team, w.assets?.teams?.[team.id] || {});
+    for (const org of contest.organizations)
+      if (w.assets?.organizations?.[org.id]) {
+        org.logo = w.assets.organizations[org.id];
+        org.logoOverride = true;
+      }
+    for (const team of contest.teams) {
+      const assets = w.assets?.teams?.[team.id];
+      Object.assign(team, assets || {});
+      if (assets?.logo) {
+        team.logoOverride = true;
+        team.logoSource = "manual";
+      } else if (
+        !team.logoOverride &&
+        w.assets?.organizations?.[team.organizationId]
+      ) {
+        team.logo = w.assets.organizations[team.organizationId];
+        team.logoSource = "organization";
+      }
+    }
     return contest;
+  }
+  async activate(key, revision, expectedCurrent, expectedContextRevision) {
+    return this.change(() => {
+      if (expectedContextRevision !== undefined)
+        this.check(expectedContextRevision, this.state.contextRevision || 0);
+      if (revision !== undefined) this.check(revision);
+      if (
+        expectedCurrent !== undefined &&
+        expectedCurrent !== this.state.activeWorkspaceId
+      )
+        throw inputError("当前赛事已被其他管理员切换，请刷新后重试", 409);
+      this.workspace(key);
+      if (this.state.activeWorkspaceId === key)
+        return { __unchanged: true, value: { ok: true } };
+      this.state.activeWorkspaceId = key;
+      this.clearContestReferences();
+      return { ok: true };
+    });
+  }
+  clearContestReferences() {
+    this.state.contextRevision = (this.state.contextRevision || 0) + 1;
+    this.state.broadcast.previousProgram = null;
+    for (const value of [
+      this.state.broadcast.preview,
+      this.state.broadcast.program,
+    ]) {
+      value.teamIds = [];
+      value.mediaIds = [];
+      value.audioMediaId = "";
+      value.title = "";
+      value.ticker = "";
+      value.image = "";
+    }
+    this.state.broadcast.revision++;
+    for (const d of this.state.displays) {
+      d.previousProgram = null;
+      d.pendingFrom = null;
+      d.pendingHistory = null;
+      d.effectiveAt = 0;
+      d.program.items = d.program.items.map((item) => ({
+        ...item,
+        teamId: "",
+      }));
+      d.revision++;
+    }
   }
   workspaceAdmin(w) {
     return {
       ...clone(w),
+      presentationLocale: w.presentationLocale || "en",
       contest: this.workspaceContest(w),
       events: undefined,
       source: w.source
         ? {
             ...w.source,
+            auth:
+              w.source.auth ||
+              (w.source.bearer
+                ? "bearer"
+                : w.source.username || w.source.password
+                  ? "basic"
+                  : "none"),
             password: undefined,
             bearer: undefined,
             hasPassword: !!w.source.password,
@@ -237,6 +336,12 @@ export class PlatformStore {
         hasPassword: !!m.password,
       })),
       serverTime: this.now(),
+      outputs: [...this.outputs.values()].map((r) => ({
+        ...r,
+        online: this.now() - r.seenAt < 15000,
+        health: healthState(r, this.now()),
+      })),
+      mediaHealth: this.mediaHealth,
     };
   }
   publicState() {
@@ -247,6 +352,8 @@ export class PlatformStore {
       revision: this.state.revision,
       serverTime: this.now(),
       workspaceId: w?.id,
+      contextId: w ? this.contextKey() : undefined,
+      presentationLocale: w?.presentationLocale || "en",
       data: w
         ? {
             ...publicContest(this.workspaceContest(w), w.unlocked),
@@ -256,14 +363,19 @@ export class PlatformStore {
       broadcast: {
         program: clone(this.state.broadcast.program),
         revision: this.state.broadcast.revision,
+        outputProfiles: clone(this.state.broadcast.outputProfiles || {}),
+        outputRevision: this.state.broadcast.outputRevision || 0,
+        mode: this.state.broadcast.mode || "program",
       },
       media: this.state.media
-        .filter((m) =>
-          sceneMediaIds(
-            this.state.broadcast.program,
-            this.state.media,
-            this.state.activeWorkspaceId,
-          ).includes(m.id),
+        .filter(
+          (m) =>
+            this.state.broadcast.mode !== "standby" &&
+            sceneMediaIds(
+              this.state.broadcast.program,
+              this.state.media,
+              this.state.activeWorkspaceId,
+            ).includes(m.id),
         )
         .map((m) => ({
           id: m.id,
@@ -272,6 +384,7 @@ export class PlatformStore {
           workspaceId: m.workspaceId,
           role: m.role,
           kind: m.kind,
+          streamRevision: m.streamRevision || 0,
           fallbackId: m.fallbackId,
         })),
       resolver: true,
@@ -282,8 +395,17 @@ export class PlatformStore {
   async updateWorkspace(key, raw) {
     return this.change(async () => {
       const w = clone(this.workspace(key));
-      this.check(raw.revision, w.revision);
+      if (raw.configRevision !== undefined)
+        this.check(raw.configRevision, w.configRevision || 0);
+      else this.check(raw.revision, w.revision);
       if (raw.name !== undefined) w.name = text(raw.name);
+      if (raw.presentationLocale !== undefined)
+        w.presentationLocale = presentationLocale(raw.presentationLocale);
+      if (raw.expectedContextRevision !== undefined)
+        this.check(
+          raw.expectedContextRevision,
+          this.state.contextRevision || 0,
+        );
       if (raw.source !== undefined) {
         const previous = w.source;
         w.source = raw.source
@@ -302,6 +424,10 @@ export class PlatformStore {
           ]) !==
             JSON.stringify([w.source.url, w.source.mode, w.source.contestId])
         ) {
+          if (raw.unlocked === true)
+            throw inputError("更换数据源后需要重新确认公开解榜");
+          w.unlocked = false;
+          w.sourceGeneration = (w.sourceGeneration || 0) + 1;
           w.events = [];
           w.cursor = null;
           w.contest = normalizeContest({
@@ -309,6 +435,8 @@ export class PlatformStore {
             teams: [],
             problems: [],
           });
+          if (key === this.state.activeWorkspaceId)
+            this.clearContestReferences();
         }
       }
       if (raw.assets) {
@@ -325,6 +453,15 @@ export class PlatformStore {
         };
         w.assets ||= { teams: {} };
         if (raw.assets.logo !== undefined) w.assets.logo = url(raw.assets.logo);
+        if (raw.assets.organizationId) {
+          const orgId = text(raw.assets.organizationId, 100);
+          if (!w.contest.organizations.some((o) => o.id === orgId))
+            throw inputError("学校不存在");
+          w.assets.organizations ||= {};
+          const value = url(raw.assets.organizationLogo);
+          if (value) w.assets.organizations[orgId] = value;
+          else delete w.assets.organizations[orgId];
+        }
         if (raw.assets.teamId) {
           const teamId = text(raw.assets.teamId, 100);
           if (!w.contest.teams.some((t) => t.id === teamId))
@@ -340,6 +477,7 @@ export class PlatformStore {
       }
       if (raw.contest) w.contest = normalizeContest(raw.contest);
       if (typeof raw.unlocked === "boolean") w.unlocked = raw.unlocked;
+      w.configRevision = (w.configRevision || 0) + 1;
       w.revision++;
       w.savedAt = this.now();
       await this.writeWorkspace(w);
@@ -438,6 +576,8 @@ export class PlatformStore {
       appliedRevision: r.appliedRevision ?? null,
       appliedAt: r.appliedAt ?? null,
       clockOffset: r.clockOffset || 0,
+      health: healthState(r, this.now()),
+      previousAvailable: !!previousContent(d, this.now()),
     };
   }
   deviceState(d) {
@@ -449,12 +589,16 @@ export class PlatformStore {
       code: d.paired ? undefined : d.code,
       expiresAt: d.expiresAt,
       revision: d.revision,
+      outputProfile: d.outputProfile,
       hidden: d.hidden,
       program: d.program,
       startedAt: d.startedAt,
       paused: d.paused,
       offset: d.offset,
       effectiveAt: d.effectiveAt || 0,
+      mode: d.mode || "program",
+      direct: d.direct === true,
+      before: d.effectiveAt > this.now() ? d.pendingFrom || null : null,
       serverTime: this.now(),
       state: d.paired ? this.publicState() : null,
     };
@@ -466,11 +610,69 @@ export class PlatformStore {
       );
       if (!d) throw inputError("链接码无效、已使用或已过期", 404);
       d.paired = true;
+      d.hidden = false;
       delete d.code;
       d.name = text(raw.name) || "展示屏";
       d.revision++;
       return this.displayAdmin(d);
     });
+  }
+  contextKey() {
+    const w = this.state.activeWorkspaceId ? this.workspace() : null;
+    return `${w?.id || "none"}:${w?.sourceGeneration || 0}:${this.state.contextRevision || 0}`;
+  }
+  async takeBroadcast(raw) {
+    return this.change(() => {
+      const b = this.state.broadcast;
+      this.check(raw.revision, b.revision);
+      b.previousProgram = {
+        scene: clone(b.program),
+        contextId: this.contextKey(),
+      };
+      b.program = clone(b.preview);
+      b.mode = "program";
+      b.revision++;
+      return b;
+    });
+  }
+  async standbyBroadcast(raw) {
+    return this.change(() => {
+      const b = this.state.broadcast;
+      this.check(raw.revision, b.revision);
+      if (typeof raw.enabled !== "boolean") throw inputError("请指定待机状态");
+      const mode = raw.enabled ? "standby" : "program";
+      if ((b.mode || "program") === mode)
+        return { __unchanged: true, value: b };
+      b.mode = mode;
+      b.revision++;
+      return b;
+    });
+  }
+  async rollbackBroadcast(raw) {
+    return this.change(() => {
+      const b = this.state.broadcast;
+      this.check(raw.revision, b.revision);
+      if (
+        !b.previousProgram ||
+        b.previousProgram.contextId !== this.contextKey()
+      )
+        throw inputError("没有可回切的正式节目", 409);
+      const previous = b.previousProgram.scene;
+      this.checkSceneSources(previous);
+      b.program = clone(previous);
+      b.mode = "program";
+      b.previousProgram = null;
+      b.revision++;
+      return b;
+    });
+  }
+  checkSceneSources(value) {
+    if (
+      [...(value.mediaIds || []), value.audioMediaId]
+        .filter(Boolean)
+        .some((id) => !this.state.media.some((m) => m.id === id))
+    )
+      throw inputError("回切节目引用的媒体已移除，请重新配置预览", 409);
   }
   async command(raw) {
     return this.change(() => {
@@ -479,18 +681,53 @@ export class PlatformStore {
       );
       if (!selected.length) throw inputError("请先选择展示屏");
       const start = this.now() + 750;
+      let changed = false;
       for (const d of selected) {
         if (raw.revisions?.[d.id] !== d.revision)
           throw inputError("屏幕状态已改变，请刷新后重试", 409);
+        const current = currentContent(d, this.now());
+        const previous = previousContent(d, this.now());
+        const targetHistory = d.previousProgram;
         if (raw.action === "rename") {
           d.name = text(raw.name) || d.name;
           d.group = text(raw.group, 80);
+        } else if (raw.action === "configure") {
+          d.outputProfile = outputProfile(raw.outputProfile);
         } else if (raw.action === "apply") {
-          d.program = program(raw.program);
-          d.effectiveAt = start;
-          d.startedAt = start;
-          d.offset = 0;
-          d.paused = false;
+          d.direct = false;
+          scheduleContent(
+            d,
+            {
+              program: program(raw.program),
+              startedAt: start,
+              offset: 0,
+              paused: false,
+              mode: "program",
+            },
+            previous,
+            this.now(),
+            start,
+          );
+          d.previousProgram = { ...current, contextId: this.contextKey() };
+        } else if (["standby", "restore"].includes(raw.action)) {
+          const mode = raw.action === "standby" ? "standby" : "program";
+          if ((d.mode || "program") === mode) continue;
+          d.direct = true;
+          scheduleContent(d, { ...current, mode }, previous, this.now(), start);
+          d.previousProgram = previous;
+        } else if (raw.action === "rollback") {
+          d.direct = true;
+          if (!previous || previous.contextId !== this.contextKey())
+            throw inputError("没有可回切的屏幕节目", 409);
+          scheduleContent(
+            d,
+            { ...previous, mode: "program" },
+            null,
+            this.now(),
+            start,
+          );
+          delete d.contextId;
+          d.previousProgram = null;
         } else if (raw.action === "hide") d.hidden = true;
         else if (raw.action === "show") d.hidden = false;
         else if (raw.action === "pause") {
@@ -498,11 +735,15 @@ export class PlatformStore {
           d.paused = true;
         } else if (raw.action === "resume") {
           if (d.paused) {
+            scheduleContent(d, contentOf(d), previous, this.now(), start);
+            d.previousProgram = targetHistory;
             d.startedAt = start - d.offset;
             d.effectiveAt = start;
             d.paused = false;
           }
         } else if (["next", "previous"].includes(raw.action)) {
+          scheduleContent(d, contentOf(d), previous, this.now(), start);
+          d.previousProgram = targetHistory;
           let total = 0;
           const elapsed = d.paused
             ? d.offset
@@ -534,16 +775,25 @@ export class PlatformStore {
           d.effectiveAt = start;
           d.offset = offset;
         } else if (raw.action === "revoke") {
+          d.previousProgram = null;
+          d.pendingFrom = null;
+          d.pendingHistory = null;
           d.paired = false;
           d.code = code();
           d.expiresAt = this.now() + 600000;
           d.hidden = true;
         } else throw inputError("不支持的屏幕操作");
         d.revision++;
+        changed = true;
       }
-      return selected.map((d) => this.displayAdmin(d));
+      const result = selected.map((d) => this.displayAdmin(d));
+      return changed ? result : { __unchanged: true, value: result };
     });
   }
+}
+function presentationLocale(value) {
+  if (!["zh-CN", "en"].includes(value)) throw inputError("展示语言无效");
+  return value;
 }
 export function parseLines(feed) {
   try {
@@ -563,6 +813,8 @@ export function parseLines(feed) {
   }
 }
 export function validateSource(raw) {
+  if (raw.auth && !["none", "basic", "bearer"].includes(raw.auth))
+    throw inputError("认证方式无效");
   let u;
   try {
     u = new URL(raw.url);
@@ -571,13 +823,23 @@ export function validateSource(raw) {
   }
   if (!["http:", "https:"].includes(u.protocol) || u.username || u.password)
     throw inputError("请填写不包含凭据的 HTTP(S) 地址");
+  if (u.href.length > 4096) throw inputError("来源地址超过长度限制");
+  if (raw.mode === "api" && !text(raw.contestId, 100))
+    throw inputError("请填写比赛 ID");
   return {
     url: u.href,
     contestId: text(raw.contestId, 100),
     mode: raw.mode === "api" ? "api" : "feed",
-    username: text(raw.username),
-    password: text(raw.password, 2000),
-    bearer: text(raw.bearer, 4000),
+    auth:
+      raw.auth ||
+      (raw.bearer ? "bearer" : raw.username || raw.password ? "basic" : "none"),
+    username: raw.auth && raw.auth !== "basic" ? "" : text(raw.username),
+    password:
+      raw.auth && raw.auth !== "basic"
+        ? ""
+        : String(raw.password ?? "").slice(0, 2000),
+    bearer: raw.auth && raw.auth !== "bearer" ? "" : text(raw.bearer, 4000),
+    enabled: raw.enabled !== false,
     allowPrivate: raw.allowPrivate === true,
   };
 }

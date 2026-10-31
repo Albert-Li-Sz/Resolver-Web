@@ -11,7 +11,7 @@ export function normalizeDisplay(value = {}) {
   const region = Object.hasOwn(REGIONS, value.region) || value.region === 'custom' ? value.region : 'full';
   const x = clamp(value.x, 0, 90, 0), y = clamp(value.y, 0, 90, 0);
   return { region, x, y, width: clamp(value.width, 10, 100 - x, 100 - x), height: clamp(value.height, 10, 100 - y, 100 - y),
-    margin: clamp(value.margin, 0, 15, 0), aspect: ['16:9', '4:3', '21:9', '32:9', 'auto'].includes(value.aspect) ? value.aspect : '16:9',
+    margin: clamp(value.margin, 0, 15, 0), aspect: ['16:9', '4:3', '1:1', '21:9', '32:9', 'auto'].includes(value.aspect) ? value.aspect : '16:9',
     resolution: Object.hasOwn(RESOLUTIONS, value.resolution) ? value.resolution : DISPLAY_DEFAULTS.resolution };
 }
 export function displayGeometry(value, viewportWidth, viewportHeight) {
@@ -23,10 +23,10 @@ export function displayGeometry(value, viewportWidth, viewportHeight) {
   const height = viewportHeight * h / 100 * (1 - s.margin / 50);
   const [a, b] = s.aspect.split(':').map(Number);
   const ratio = s.aspect === 'auto' ? width / Math.max(1, height) : a / b;
-  return { left, top, width, height, logicalWidth: Math.round(clamp(ratio * 1080, 1440, 5760, 1920)), logicalHeight: 1080 };
+  return { left, top, width, height, logicalWidth: Math.round(clamp(ratio * 1080, 1080, 5760, 1920)), logicalHeight: 1080 };
 }
 export function renderDimensions(logicalWidth = 1920, resolution = DISPLAY_DEFAULTS.resolution) {
-  const width = clamp(logicalWidth, 1440, 5760, 1920);
+  const width = clamp(logicalWidth, 1080, 5760, 1920);
   const height = Object.hasOwn(RESOLUTIONS, resolution) ? RESOLUTIONS[resolution] : RESOLUTIONS[DISPLAY_DEFAULTS.resolution];
   // Bound allocation on extreme LED aspect ratios, including the calibration canvas.
   const scale = Math.min(height / 1080, 8192 / width);

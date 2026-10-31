@@ -1,6 +1,7 @@
 import { sharedEventSource } from "../../public/js/event-channel.js";
 import { useEffect, useRef, useState } from "react";
 import { LiveView, type LiveViewHandle } from "./LiveView";
+import { MediaReader } from "./media";
 import {
   labels,
   type AnyRecord,
@@ -11,6 +12,7 @@ import {
 export type StageHandle = {
   capture: () => string | Promise<string>;
   audio: () => void;
+  health: () => AnyRecord;
 };
 function programTime(
   program: Program,
@@ -50,6 +52,7 @@ export function Stage({
   ratio = 16 / 9,
   handle,
   onApplied,
+  outputMode,
 }: {
   state: AnyRecord | null;
   item?: Item;
@@ -63,9 +66,18 @@ export function Stage({
   ratio?: number;
   handle?: { current: StageHandle | null };
   onApplied?: (revision: number) => void;
+  outputMode?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const liveHandle = useRef<LiveViewHandle | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const health = useRef({
+    startedAt: Date.now(),
+    renderedAt: 0,
+    error: "",
+    captureFailed: false,
+    kind: "animated",
+  });
   const [live, setLive] = useState(!item || item.type === "live");
   const liveFlag = useRef(live);
   const latest = useRef({
@@ -80,6 +92,8 @@ export function Stage({
     resolution,
     ratio,
     onApplied,
+    outputMode,
+    audioEnabled,
   });
   latest.current = {
     state,
@@ -93,7 +107,17 @@ export function Stage({
     resolution,
     ratio,
     onApplied,
+    outputMode,
+    audioEnabled,
   };
+  useEffect(() => {
+    const fonts = "/js/render/text.js";
+    void import(/* @vite-ignore */ fonts).then((m) =>
+      m.initFonts(state?.presentationLocale || "en"),
+    );
+    const image = new Image();
+    image.src = state?.data?.contest?.logo || "/assets/img/icpc-logo.png";
+  }, [state?.presentationLocale, state?.data?.contest?.logo]);
   useEffect(() => {
     const c = canvas.current!;
     const ctx = c.getContext("2d")!;
@@ -194,20 +218,30 @@ export function Stage({
     if (handle)
       handle.current = {
         capture: async () => {
-          if (liveFlag.current && liveHandle.current && !latest.current.hidden)
-            return liveHandle.current.capture();
+          if (
+            liveFlag.current &&
+            liveHandle.current &&
+            !latest.current.hidden
+          ) {
+            const value = await liveHandle.current.capture();
+            health.current.captureFailed = !value;
+            return value;
+          }
           const small = document.createElement("canvas");
           small.width = 320;
-          small.height = 180;
-          small.getContext("2d")!.drawImage(c, 0, 0, 320, 180);
+          small.height = Math.max(1, Math.round((320 * c.height) / c.width));
+          small.getContext("2d")!.drawImage(c, 0, 0, small.width, small.height);
           try {
             return await new Promise<string>((resolve) =>
               small.toBlob(
                 (blob) => {
-                  if (!blob) return resolve("");
+                  if (!blob) { health.current.captureFailed = true; return resolve(""); }
                   const reader = new FileReader();
-                  reader.onload = () => resolve(String(reader.result || ""));
-                  reader.onerror = () => resolve("");
+                  reader.onload = () => {
+                    health.current.captureFailed = !reader.result;
+                    resolve(String(reader.result || ""));
+                  };
+                  reader.onerror = () => { health.current.captureFailed = true; resolve(""); };
                   reader.readAsDataURL(blob);
                 },
                 "image/jpeg",
@@ -215,20 +249,46 @@ export function Stage({
               ),
             );
           } catch {
+            health.current.captureFailed = true;
             return "";
           }
         },
         audio: () => {
-          liveHandle.current?.audio();
+          setAudioEnabled(true);
         },
+        health: () => ({
+          visible: document.visibilityState === "visible",
+          uptimeMs: Date.now() - health.current.startedAt,
+          renderAgeMs: health.current.renderedAt
+            ? Date.now() - health.current.renderedAt
+            : null,
+          renderError:
+            health.current.error ||
+            (health.current.captureFailed ? "capture-failed" : ""),
+          media: MediaReader.health(latest.current.headers),
+          audioEnabled: latest.current.audioEnabled,
+          renderKind: health.current.kind,
+        }),
       };
-    function render(now: number) {
+    function drawFrame(now: number) {
       if (disposed) return;
       frame = requestAnimationFrame(render);
       const p = latest.current;
       const serverNow = Date.now() + (p.program?.clockOffset || 0);
       const width = Math.min(8192, Math.round(p.resolution * p.ratio));
       const height = Math.round(width / p.ratio);
+      const locale = p.state?.presentationLocale || "en";
+      if (
+        !playingProgram &&
+        p.program?.before &&
+        serverNow < p.program.effectiveAt
+      )
+        playingProgram = {
+          ...p.program,
+          ...p.program.before,
+          revision: -1,
+          effectiveAt: 0,
+        };
       if (
         p.program &&
         (!playingProgram || serverNow >= (p.program.effectiveAt || 0))
@@ -247,7 +307,7 @@ export function Stage({
         prepared = null;
         playingProgram = p.program;
       }
-      const active = playingProgram
+      const baseItem = playingProgram
         ? currentItem(
             playingProgram.program,
             playingProgram.startedAt,
@@ -256,18 +316,25 @@ export function Stage({
             serverNow,
           )
         : p.item || { type: "live", duration: 15 };
+      const standby =
+        playingProgram?.mode === "standby" ||
+        (baseItem.type === "live" &&
+          (p.outputMode || p.state?.broadcast?.mode) === "standby");
+      const active = standby ? { type: "standby", duration: 15 } : baseItem;
       const data = p.state?.data;
       const type = active?.type || "logo";
+      health.current.kind = p.hidden || ["standby", "logo", "message", "calibration", "team"].includes(type) ? "static" : type === "live" ? "live" : "animated";
       resolverWanted = type === "resolver";
       if (liveFlag.current !== (type === "live")) {
         liveFlag.current = type === "live";
         setLive(liveFlag.current);
       }
-      const itemKey = JSON.stringify(active);
+      const itemKey = JSON.stringify(active) + ":" + locale;
       if (shownType !== itemKey) {
         c.dataset.presentation = type;
         c.setAttribute("aria-label", labels[type] || "实时展示画面");
-        if (shownType && p.program?.program?.transition === "fade") {
+        if (p.program?.direct || type === "standby") previous = null;
+        else if (shownType && p.program?.program?.transition === "fade") {
           previous = document.createElement("canvas");
           previous.width = c.width;
           previous.height = c.height;
@@ -285,13 +352,16 @@ export function Stage({
         playingProgram?.revision !== p.program.revision &&
         serverNow < p.program.effectiveAt
       ) {
-        const next = currentItem(
-          p.program.program,
-          p.program.startedAt,
-          p.program.paused,
-          p.program.offset,
-          p.program.effectiveAt,
-        );
+        const next =
+          p.program.mode === "standby"
+            ? { type: "standby", duration: 15 }
+            : currentItem(
+                p.program.program,
+                p.program.startedAt,
+                p.program.paused,
+                p.program.offset,
+                p.program.effectiveAt,
+              );
         if (!["live", "resolver"].includes(next.type)) {
           if (
             !prepared ||
@@ -330,7 +400,13 @@ export function Stage({
               prepared.bitmap.getContext("2d"),
               data,
               next,
-              { width, height, now: p.program.effectiveAt, elapsed: phase },
+              {
+                width,
+                height,
+                now: p.program.effectiveAt,
+                elapsed: phase,
+                locale,
+              },
             );
           }
         }
@@ -339,13 +415,22 @@ export function Stage({
         c.width = width;
         c.height = height;
       }
-      const acknowledge = () =>
+      const acknowledge = () => {
+        health.current.renderedAt = Date.now();
+        health.current.error = "";
         p.onApplied?.(playingProgram?.revision ?? p.state?.revision ?? 0);
+      };
       if (p.hidden) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, c.width, c.height);
         restorePresentation = true;
+        acknowledge();
+        return;
+      }
+      if (type === "standby" && p.transparent) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, c.width, c.height);
         acknowledge();
         return;
       }
@@ -379,7 +464,7 @@ export function Stage({
         resolverId = "";
       }
       if (type === "live") {
-        if (liveHandle.current) acknowledge();
+        if (liveHandle.current?.ready()) acknowledge();
         return;
       }
       const fit = Math.min(c.width / 1920, c.height / 1080);
@@ -393,7 +478,9 @@ export function Stage({
       );
       last = now;
       const preloadKey =
-        String(p.program?.revision) + ":" + p.state?.workspaceId;
+        String(p.program?.revision) +
+        ":" +
+        (p.state?.contextId || p.state?.workspaceId);
       if (preloaded !== preloadKey) {
         preloaded = preloadKey;
         for (const entry of p.program?.program?.items || [])
@@ -431,6 +518,7 @@ export function Stage({
             now: serverNow,
             elapsed,
             restore: restorePresentation || !!previous,
+            locale,
           })
         )
           return;
@@ -448,6 +536,13 @@ export function Stage({
       }
       acknowledge();
     }
+    function render(now: number) {
+      try {
+        drawFrame(now);
+      } catch {
+        health.current.error = "render-failed";
+      }
+    }
     frame = requestAnimationFrame(render);
     return () => {
       disposed = true;
@@ -458,7 +553,7 @@ export function Stage({
       prepared?.view.dispose();
       if (handle) handle.current = null;
     };
-  }, [handle]);
+  }, [handle, state?.contextId || state?.workspaceId]);
   return (
     <div
       className="stage-canvas stage-surface"
@@ -472,6 +567,7 @@ export function Stage({
       />
       {live && !hidden && (scene || state?.broadcast?.program) && (
         <LiveView
+          key={state?.contextId || state?.workspaceId || "empty"}
           state={state}
           scene={scene || state?.broadcast?.program}
           headers={headers}
@@ -479,6 +575,7 @@ export function Stage({
           transparent={transparent}
           ratio={ratio}
           handle={liveHandle}
+          audioEnabled={audioEnabled}
         />
       )}
     </div>

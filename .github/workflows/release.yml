@@ -8,6 +8,8 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  browser:
+    uses: ./.github/workflows/browser.yml
   tests:
     runs-on: ubuntu-24.04
     strategy:
@@ -26,7 +28,7 @@ jobs:
       - run: npm run check
       - run: npm test
   build:
-    needs: tests
+    needs: [tests, browser]
     name: Build ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -103,6 +105,16 @@ jobs:
           exit 1
       - run: npm run smoke -- http://127.0.0.1:4180 verify-restart
       - run: node scripts/smoke-platform.mjs http://127.0.0.1:4180 verify-restart
+      - run: node scripts/smoke-onsite.mjs http://127.0.0.1:4180
+      - run: docker restart resolver-release-test
+      - name: Wait for emergency state recovery
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4180/api/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: node scripts/smoke-onsite.mjs http://127.0.0.1:4180 verify-restart
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io

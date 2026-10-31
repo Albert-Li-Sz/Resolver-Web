@@ -1,10 +1,13 @@
+import { ConfirmProvider } from "./Confirm";
 import React, { useState, useEffect, useRef, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "./api";
 import type { AnyRecord } from "./types";
+import { feedStatus } from "./ui";
 import "./style.css";
 const Live = lazy(() => import("./Live"));
 const Admin = lazy(() => import("./Admin"));
+const Contest = lazy(() => import("./Contest"));
 const Display = lazy(() =>
   import("./Outputs").then((m) => ({ default: m.Display })),
 );
@@ -24,7 +27,13 @@ function App() {
   const display = path.startsWith("/presentations");
   const [state, setState] = useState<AnyRecord | null>(null);
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
   const [online, setOnline] = useState(false);
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 6000);
+    return () => clearTimeout(timer);
+  }, [message]);
   useEffect(() => {
     if (display || output || path === "/") return;
     return subscribe("/platform/events", {}, setState, setOnline);
@@ -32,8 +41,10 @@ function App() {
   const run = async (fn: () => Promise<unknown>, success = "已保存") => {
     try {
       await fn();
+      setFailed(false);
       setMessage(success);
     } catch (e) {
+      setFailed(true);
       setMessage((e as Error).message);
     }
   };
@@ -77,13 +88,30 @@ function App() {
       <Header />
       <main className="workspace">
         <div className="heading">
-          <h1>{path.startsWith("/live") ? "Live" : "PresentationAdmin"}</h1>
+          <h1>
+            {path.startsWith("/contest")
+              ? "赛事中心"
+              : path.startsWith("/live")
+                ? "Live"
+                : "PresentationAdmin"}
+          </h1>
           <span className={"connection " + (online ? "online" : "")}>
             {online ? "服务已连接" : "正在重连"}
           </span>
         </div>
+        {state ? (
+          <div className="current-contest">
+            <a href="/contest/">
+              {state.activeWorkspace?.name || "尚未选择当前赛事"} ↗
+            </a>
+            <span>{feedStatus(state.activeWorkspace, state.feed)}</span>
+          </div>
+        ) : null}
         {message ? (
-          <div className="notice" role="status">
+          <div
+            className={"notice" + (failed ? " error" : "")}
+            role={failed ? "alert" : "status"}
+          >
             {message}
             <button onClick={() => setMessage("")} aria-label="关闭消息">
               ×
@@ -92,7 +120,9 @@ function App() {
         ) : null}
         <React.Suspense fallback={<p>正在加载…</p>}>
           {state ? (
-            path.startsWith("/live") ? (
+            path.startsWith("/contest") ? (
+              <Contest state={state} run={run} />
+            ) : path.startsWith("/live") ? (
               <Live state={state} run={run} />
             ) : (
               <Admin state={state} run={run} />
@@ -178,8 +208,18 @@ function Header() {
             {name}
           </a>
         ))}
+        <a
+          href="/contest/"
+          className={location.pathname.startsWith("/contest") ? "active" : ""}
+        >
+          赛事中心
+        </a>
       </nav>
     </header>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <ConfirmProvider>
+    <App />
+  </ConfirmProvider>,
+);

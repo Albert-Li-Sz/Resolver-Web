@@ -9,11 +9,11 @@ export function equalSecret(left, right) {
 export function managementAccess(req, res, next) {
   // Express routing is case-insensitive by default; match that policy here.
   const route = req.path.toLowerCase();
-  const platformPublic = /^\/api\/(?:time\/?$|broadcast\/(?:output|events)\/?$|displays\/(?:register|events)\/?$|displays\/[a-f0-9]{32}\/(?:state|events|heartbeat|renew-code)\/?$|media\/read\/[a-f0-9]{32}\/?$)/.test(route);
+  const platformPublic = /^\/api\/(?:time\/?$|broadcast\/(?:output|events|heartbeat)\/?$|displays\/(?:register|events)\/?$|displays\/[a-f0-9]{32}\/(?:state|events|heartbeat|renew-code|settings)\/?$|media\/read\/[a-f0-9]{32}\/?$)/.test(route);
   const publicApi = platformPublic || /^\/api\/(?:health\/?$|watch(?:\/|$)|game\/[^/]+(?:\/playback)?\/?$)/.test(route);
   const management = (route.startsWith('/api/') && !publicApi) ||
     ['/index', '/index.html', '/display', '/display.html', '/logos', '/logos.html', '/presets', '/presets.html', '/preview', '/preview.html', '/render-test.html'].includes(route);
-  const platformManagement = /^\/(?:resolver|presentation-admin)(?:\/|$)/.test(route) || (/^\/live(?:\/|$)/.test(route) && !/^\/live\/(?:program|overlay)(?:\/|$)/.test(route));
+  const platformManagement = /^\/(?:resolver|contest|presentation-admin)(?:\/|$)/.test(route) || (/^\/live(?:\/|$)/.test(route) && !/^\/live\/(?:program|overlay)(?:\/|$)/.test(route));
   if (!management && !platformManagement) return next();
   const key = process.env.RESOLVER_ADMIN_KEY;
   if (key) {

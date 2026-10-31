@@ -25,6 +25,7 @@ import { sceneMediaSlots } from "../../public/js/broadcast-media.js";
 export type LiveViewHandle = {
   capture: () => Promise<string>;
   audio: () => void;
+  ready: () => boolean;
 };
 export function LiveView({
   state,
@@ -34,6 +35,7 @@ export function LiveView({
   transparent,
   ratio,
   handle,
+  audioEnabled = false,
 }: {
   state: AnyRecord | null;
   scene: Scene;
@@ -42,10 +44,11 @@ export function LiveView({
   transparent: boolean;
   ratio: number;
   handle: { current: LiveViewHandle | null };
+  audioEnabled?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [audio, setAudio] = useState(false);
+  const audio = audioEnabled;
   const store = useMemo(() => createOverlayStore(), []);
   const clockStore = useMemo(() => createOverlayStore(), []);
   const firstSolveStore = useMemo(() => createOverlayStore(), []);
@@ -157,7 +160,8 @@ export function LiveView({
   }, []);
   useEffect(() => {
     handle.current = {
-      audio: () => setAudio(true),
+      audio: () => {},
+      ready: () => !!root.current?.clientWidth,
       capture: async () => {
         try {
           const html2canvas = (await import("html2canvas")).default;
@@ -178,36 +182,32 @@ export function LiveView({
       handle.current = null;
     };
   }, [handle, transparent]);
+  const media = state?.media || [];
+  const slots = sceneMediaSlots(scene, media, state?.workspaceId);
+  const audioSource = media.find((m: AnyRecord) => m.id === scene.audioMediaId);
+  const audioInVideo = slots.some(s => s.primary === scene.audioMediaId || s.secondary === scene.audioMediaId);
+  const audioOptions = useRef({ volume: scene.volume, muted: muted && !audio });
+  audioOptions.current = { volume: scene.volume, muted: muted && !audio };
   useEffect(() => {
     if (
-      !scene.audioMediaId ||
+      !audioSource ||
       transparent ||
-      sceneMediaSlots(scene, state?.media || [], state?.workspaceId).some(
-        (s) =>
-          s.primary === scene.audioMediaId ||
-          s.secondary === scene.audioMediaId,
-      )
+      audioInVideo
     )
       return;
     const r = new MediaReader(scene.audioMediaId, headers);
-    const t = setInterval(() => r.audio(scene.volume, muted && !audio), 250);
+    const t = setInterval(() => r.audio(audioOptions.current.volume, audioOptions.current.muted), 250);
     return () => {
       clearInterval(t);
       r.close();
     };
   }, [
-    scene.audioMediaId,
-    scene.volume,
-    muted,
-    audio,
     transparent,
     JSON.stringify(headers),
-    JSON.stringify(scene.mediaIds),
-    JSON.stringify(scene.teamIds),
-    state?.workspaceId,
-    state?.media,
+    audioSource?.id,
+    audioSource?.streamRevision,
+    audioInVideo,
   ]);
-  const slots = sceneMediaSlots(scene, state?.media || [], state?.workspaceId);
   const scale = Math.min(size.width / 1920, size.height / 1080);
   const context = useMemo(
     () => ({
@@ -276,8 +276,8 @@ export function LiveView({
           <Provider store={store}>
             <MediaContext.Provider value={context}>
               {Array.from({ length: count }, (_, i) => {
-                const source = slots[i].primary,
-                  secondary = slots[i].secondary;
+                const source = media.find((m: AnyRecord) => m.id === slots[i].primary),
+                  secondary = media.find((m: AnyRecord) => m.id === slots[i].secondary);
                 return widget(
                   "team-" + i,
                   positions[i],
@@ -287,10 +287,10 @@ export function LiveView({
                         widgetLocationId: positions[i],
                         settings: {
                           teamId: scene.teamIds[i],
-                          primary: transparent ? [] : [{ sourceId: source }],
+                          primary: transparent ? [] : [{ sourceId: source?.id, streamRevision: source?.streamRevision || 0 }],
                           secondary:
                             !transparent && secondary
-                              ? [{ sourceId: secondary }]
+                              ? [{ sourceId: secondary.id, streamRevision: secondary.streamRevision || 0 }]
                               : [],
                           achievement: [],
                           showTaskStatus:

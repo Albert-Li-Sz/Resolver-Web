@@ -40,6 +40,7 @@ test("module routes enforce management access while home and output shells stay 
   ])
     assert.equal((await fetch(base + route)).status, 200, route);
   for (const route of [
+    "/contest/",
     "/resolver/",
     "/resolver/display",
     "/live/",
@@ -439,4 +440,185 @@ test("raw NDJSON workspace upload uses the feed limit rather than the smaller JS
   const w = await response.json();
   assert.equal(w.name, "大文件验收");
   assert.equal(w.contest.teams[0].id, "upload-team");
+});
+
+test("workspace creation and source editing do not implicitly replace the live contest", async (t) => {
+  const base = await serve(t);
+  const before = platform.store.state.activeWorkspaceId;
+  const r = await fetch(
+    base + "/api/workspaces",
+    post({ name: "Explicit switching" }),
+  );
+  const w = await r.json();
+  assert.equal(r.status, 201);
+  assert.equal(platform.store.state.activeWorkspaceId, before);
+  const detail = await fetch(base + `/api/workspaces/${w.id}`, {
+    headers: manage,
+  });
+  assert.equal(detail.status, 200);
+  const activate = await fetch(
+    base + `/api/workspaces/${w.id}/activate`,
+    post({ currentWorkspaceId: before }),
+  );
+  assert.equal(activate.status, 200);
+  assert.equal(platform.store.state.activeWorkspaceId, w.id);
+  const stale = await fetch(
+    base + `/api/workspaces/${w.id}/activate`,
+    post({ currentWorkspaceId: "stale" }),
+  );
+  assert.equal(stale.status, 409);
+});
+test("saved plans and scene presets update in place with revision conflicts", async (t) => {
+  const base = await serve(t);
+  for (const [route, body] of [
+    [
+      "/presentations/plans",
+      { name: "Plan", items: [{ type: "clock", duration: 15 }] },
+    ],
+    ["/broadcast/presets", { name: "Preset", scene: { layout: "dual" } }],
+  ]) {
+    const created = await (
+      await fetch(base + "/api" + route, post(body))
+    ).json();
+    const updated = await fetch(base + "/api" + route + "/" + created.id, {
+      method: "PUT",
+      headers: manage,
+      body: JSON.stringify({ ...body, name: "Updated", revision: 0 }),
+    });
+    assert.equal(updated.status, 200);
+    assert.equal((await updated.json()).id, created.id);
+    const stale = await fetch(base + "/api" + route + "/" + created.id, {
+      method: "PUT",
+      headers: manage,
+      body: JSON.stringify({ ...body, revision: 0 }),
+    });
+    assert.equal(stale.status, 409);
+  }
+});
+test("screen identities can update only their own persistent output profile", async (t) => {
+  const base = await serve(t);
+  const d = await (
+    await fetch(base + "/api/displays/register", post({}))
+  ).json();
+  const paired = await (
+    await fetch(
+      base + "/api/displays/pair",
+      post({ code: d.code, name: "Profile screen" }),
+    )
+  ).json();
+  const request = {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Display-Token": d.token },
+    body: JSON.stringify({
+      revision: paired.revision,
+      outputProfile: {
+        resolution: "2160p",
+        aspect: "32:9",
+        margin: 4,
+        region: "right",
+      },
+    }),
+  };
+  const r = await fetch(base + `/api/displays/${d.id}/settings`, request);
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).outputProfile.margin, 4);
+  assert.equal(
+    (await fetch(base + `/api/displays/${d.id}/settings`, request)).status,
+    409,
+  );
+  assert.equal(
+    (await fetch(base + `/api/displays/${"a".repeat(32)}/settings`, request))
+      .status,
+    403,
+  );
+});
+test("OBS output profiles are independent, public and do not commit the preview", async (t) => {
+  const base = await serve(t);
+  const before = structuredClone(platform.store.state.broadcast);
+  const r = await fetch(base + "/api/broadcast/output-settings", {
+    method: "PUT",
+    headers: manage,
+    body: JSON.stringify({
+      revision: before.outputRevision || 0,
+      type: "program",
+      outputProfile: { resolution: "2160p", aspect: "21:9" },
+    }),
+  });
+  assert.equal(r.status, 200);
+  assert.equal(platform.store.state.broadcast.revision, before.revision);
+  assert.deepEqual(platform.store.state.broadcast.program, before.program);
+  const output = await (
+    await fetch(base + "/api/broadcast/output", {
+      headers: { "X-Output-Token": before.token },
+    })
+  ).json();
+  assert.equal(output.broadcast.outputProfiles.program.resolution, "2160p");
+  assert.equal(output.broadcast.outputProfiles.overlay, undefined);
+});
+test("CCS archives require administrator access and reject invalid paths", async (t) => {
+  const base = await serve(t);
+  const route =
+    "/api/workspaces/" + "a".repeat(32) + "/resolver-exports/" + "b".repeat(32);
+  assert.equal((await fetch(base + route)).status, 401);
+  assert.equal((await fetch(base + route + "/feed")).status, 401);
+  assert.equal(
+    (await fetch(base + route + "/feed", { headers: manage })).status,
+    404,
+  );
+});
+
+test("team-bound presets and playlists are workspace-scoped and reject stale workspace saves", async (t) => {
+  const base = await serve(t);
+  const make = async (name) =>
+    await (await fetch(base + "/api/workspaces", post({ name }))).json();
+  const a = await make("Scoped A");
+  await fetch(base + `/api/workspaces/${a.id}/activate`, post({}));
+  const preset = await (
+    await fetch(
+      base + "/api/broadcast/presets",
+      post({
+        name: "Bound preset",
+        workspaceId: a.id,
+        scene: { teamIds: ["same-id"] },
+      }),
+    )
+  ).json();
+  assert.equal(preset.workspaceId, a.id);
+  const plan = await (
+    await fetch(
+      base + "/api/presentations/plans",
+      post({
+        name: "Bound plan",
+        workspaceId: a.id,
+        items: [{ type: "team", teamId: "same-id", duration: 10 }],
+      }),
+    )
+  ).json();
+  assert.equal(plan.workspaceId, a.id);
+  const b = await make("Scoped B");
+  await fetch(base + `/api/workspaces/${b.id}/activate`, post({}));
+  for (const [route, body] of [
+    ["/broadcast/presets", { scene: { teamIds: ["same-id"] } }],
+    [
+      "/presentations/plans",
+      { items: [{ type: "team", teamId: "same-id", duration: 10 }] },
+    ],
+  ]) {
+    const stale = await fetch(
+      base + "/api" + route,
+      post({ name: "Stale save", workspaceId: a.id, ...body }),
+    );
+    assert.equal(stale.status, 409);
+  }
+  const generic = await (
+    await fetch(
+      base + "/api/presentations/plans",
+      post({
+        name: "Clock",
+        workspaceId: b.id,
+        items: [{ type: "clock", duration: 10 }],
+      }),
+    )
+  ).json();
+  assert.equal(generic.workspaceId, "");
 });

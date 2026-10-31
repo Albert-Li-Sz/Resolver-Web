@@ -21,3 +21,4 @@
   --ui-pill: 9999px;
   --ui-card: 12px;
 }
+.ccs-import .card-head{justify-content:space-between;flex-wrap:wrap}.ccs-import-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px}.ccs-import-actions select{min-width:220px;flex:1}.ccs-import [hidden]{display:none!important}.ccs-import p:empty{display:none}.ccs-import p{margin-bottom:0;font-size:13px;color:#666}

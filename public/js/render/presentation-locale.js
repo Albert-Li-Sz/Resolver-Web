@@ -1,0 +1,41 @@
+export const presentationWords = {
+  en: {
+    scoreboard: "Current Standings",
+    leaders: "Current Medal Contenders",
+    queue: "Judge Queue",
+    "first-solves": "First to Solve",
+    rank: "Rank",
+    team: "Name",
+    solved: "Solved",
+    penalty: "Time",
+    solveTime: "Time",
+    problem: "Problem",
+    ended: "Contest is over",
+    first: "First to Solve",
+    accepted: "Solved Problem",
+    rejected: "Rejected Submission",
+    pending: "Pending Submission",
+    standby: "Please stand by",
+  },
+  "zh-CN": {
+    scoreboard: "实时榜单",
+    leaders: "领先队伍榜",
+    queue: "判题队列",
+    "first-solves": "首解列表",
+    rank: "排名",
+    team: "队伍",
+    solved: "通过",
+    penalty: "罚时",
+    solveTime: "用时",
+    problem: "题目",
+    ended: "比赛已结束",
+    first: "首解",
+    accepted: "已通过",
+    rejected: "未通过",
+    pending: "待判定",
+    standby: "请稍候",
+  },
+};
+export function presentationWord(locale, key) {
+  return (presentationWords[locale] || presentationWords.en)[key] || key;
+}

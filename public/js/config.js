@@ -2474,8 +2474,9 @@ function escapeXml(value) {
 
 async function importWorkspaceSnapshot(event) {
   const contest = event.detail?.contest;
-  if (!isContestLike(contest) || !await confirmReplacement('载入共享赛事快照')) return;
+  if (!isContestLike(contest) || !await confirmReplacement('载入 CCS 赛后榜单')) { event.detail?.done?.(false); return; }
   ++state.contestLoadToken;
-  applyContest(structuredClone(contest), {source: 'saved', sourceName: '共享赛事快照'});
+  applyContest(structuredClone(contest), {source: 'saved', sourceName: event.detail?.sourceName || '共享赛事快照'});
+  event.detail?.done?.(true);
   showToast('已创建独立滚榜快照，实时赛事更新不会更改此快照。', 'success');
 }

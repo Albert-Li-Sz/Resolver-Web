@@ -21,6 +21,7 @@ export type Item = {
 };
 export type Program = { items: Item[]; loop: boolean; transition: string };
 export const labels: Record<string, string> = {
+  standby: '待机画面',
   scoreboard: "实时榜单",
   leaders: "领先队伍榜",
   clock: "比赛时钟",

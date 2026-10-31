@@ -1,0 +1,66 @@
+{
+  "environment": "Browser IAB; loopback HTTP; MediaMTX and FFmpeg worker; protocol fixtures 320x180; scale test separately uses four 1920x1080p30 sources",
+  "transport": "HLS browser fallback",
+  "observations": [
+    {
+      "type": "rtmp",
+      "videos": [
+        {
+          "height": 180,
+          "paused": false,
+          "ready": 4,
+          "time": 23.758413,
+          "webRTC": false,
+          "width": 320
+        }
+      ]
+    },
+    {
+      "type": "srt",
+      "videos": [
+        {
+          "height": 180,
+          "paused": false,
+          "ready": 4,
+          "time": 50.843692,
+          "webRTC": false,
+          "width": 320
+        }
+      ]
+    },
+    {
+      "type": "mp4-hevc",
+      "videos": [
+        {
+          "height": 180,
+          "paused": false,
+          "ready": 4,
+          "time": 26.391432,
+          "webRTC": false,
+          "width": 320
+        }
+      ]
+    },
+    {
+      "type": "hls",
+      "videos": [
+        {
+          "height": 180,
+          "paused": false,
+          "ready": 4,
+          "time": 34.038553,
+          "webRTC": false,
+          "width": 320
+        }
+      ]
+    }
+  ],
+  "rtmpProbe": "Passed after publisher startup; first probe before publisher was ready returned 502",
+  "hevcInputProbe": {
+    "codec_name": "hevc",
+    "width": 320,
+    "height": 180,
+    "has_b_frames": 2
+  },
+  "notes": "MP4 source automatically transcoded by worker; video observations came from real DOM video elements, no simulated playback."
+}

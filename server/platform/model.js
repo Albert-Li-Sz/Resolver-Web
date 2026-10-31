@@ -77,10 +77,12 @@ export function scene(raw = {}) {
   return s;
 }
 export function program(raw = {}) {
+  if (Array.isArray(raw.items) && raw.items.length > 100)
+    throw inputError("节目单最多 100 项");
   const items = (Array.isArray(raw.items) ? raw.items : [])
     .slice(0, 100)
     .map((item) => {
-      if (!templates.includes(item.type)) throw inputError("未知展示模板");
+      if (!item || !templates.includes(item.type)) throw inputError("未知展示模板");
       return {
         type: item.type,
         duration: Math.max(2, Math.min(3600, Number(item.duration) || 15)),

@@ -1,6 +1,11 @@
 import { api } from "./api";
 type Playback = { user: string; password: string; whep: string; hls: string };
 export class MediaReader {
+  private static readers = new Set<MediaReader>();
+  static health(headers: Record<string, string>) {
+    const key = JSON.stringify(Object.entries(headers).sort());
+    return [...MediaReader.readers].filter(r => JSON.stringify(Object.entries(r.headers).sort()) === key).slice(0, 12).map(r => r.snapshot());
+  }
   video = document.createElement("video");
   private readerId = Array.from(
     crypto.getRandomValues(new Uint8Array(16)),
@@ -21,6 +26,15 @@ export class MediaReader {
   private lastTime = -1;
   private lastFrame = 0;
   private connectStarted = Date.now();
+  private protocol = 'none';
+  private reconnects = 0;
+  private error = '';
+  private fps: number | null = null;
+  private decoded = 0;
+  private sampledAt = Date.now();
+  snapshot() {
+    return { id: this.id, protocol: this.protocol, status: this.ready ? 'playing' : this.retry ? 'reconnecting' : this.reconnects ? 'reconnecting' : 'starting', width: this.video.videoWidth, height: this.video.videoHeight, fps: this.fps, frameAgeMs: this.lastFrame ? Date.now() - this.lastFrame : null, reconnects: this.reconnects, error: this.error };
+  }
   get ready() {
     return this.video.readyState >= 2 && Date.now() - this.lastFrame < 6000;
   }
@@ -29,11 +43,12 @@ export class MediaReader {
     public headers: Record<string, string>,
     public onFailure?: () => void,
   ) {
+    MediaReader.readers.add(this);
     this.video.playsInline = true;
     this.video.crossOrigin = "anonymous";
     this.video.autoplay = true;
     this.video.muted = true;
-    this.video.addEventListener("error", () => this.reconnect());
+    this.video.addEventListener("error", () => this.reconnect('playback'));
     void this.connect();
     // One lease per reader; refresh credentials without reloading a healthy HLS stream.
     this.lease = setInterval(
@@ -41,19 +56,25 @@ export class MediaReader {
       30000,
     );
     this.watchdog = setInterval(() => {
+      const now = Date.now();
+      const decoded = this.video.getVideoPlaybackQuality?.().totalVideoFrames;
+      if (decoded !== undefined && this.video.videoWidth) this.fps = Math.max(0, (decoded - this.decoded) * 1000 / Math.max(1, now - this.sampledAt));
+      if (decoded !== undefined) this.decoded = decoded;
+      this.sampledAt = now;
       if (
         this.video.currentTime !== this.lastTime &&
         this.video.readyState >= 2
       ) {
         this.lastTime = this.video.currentTime;
         this.lastFrame = Date.now();
+        this.error = '';
       } else if (
         (this.lastFrame && Date.now() - this.lastFrame > 6000) ||
         (!this.lastFrame &&
           !this.retry &&
           Date.now() - this.connectStarted > 15000)
       )
-        this.reconnect();
+        this.reconnect('stalled');
     }, 1000);
   }
   private async authorize() {
@@ -89,8 +110,10 @@ export class MediaReader {
       }).catch(() => {});
     this.location = null;
   }
-  private reconnect() {
+  private reconnect(error = 'connection') {
     if (this.closed || this.retry) return;
+    this.reconnects++;
+    this.error = error;
     this.onFailure?.();
     this.lastFrame = 0;
     this.generation++;
@@ -116,6 +139,7 @@ export class MediaReader {
           if (this.closed || generation !== this.generation) return;
           if (!inbound.getTrackById(e.track.id)) inbound.addTrack(e.track);
           this.video.srcObject = inbound;
+          this.protocol = 'webrtc';
           void this.video.play().catch(() => {});
         };
         pc.onconnectionstatechange = () => {
@@ -163,8 +187,8 @@ export class MediaReader {
       } catch {
         await this.hls(info, generation);
       }
-    } catch {
-      this.reconnect();
+    } catch (e: any) {
+      this.reconnect([401, 403].includes(e?.status) ? 'authorization' : 'connection');
     }
   }
   private async hls(info: Playback, generation: number) {
@@ -176,6 +200,7 @@ export class MediaReader {
     )
       return;
     this.hlsStarting = true;
+    this.protocol = 'hls';
     this.pc && (this.pc.onconnectionstatechange = null);
     this.pc?.close();
     this.pc = null;
@@ -209,9 +234,10 @@ export class MediaReader {
     this.video.muted = muted || !volume;
     this.video.volume = volume;
     if (!this.video.muted && this.video.paused)
-      void this.video.play().catch(() => {});
+      void this.video.play().catch(() => { this.error = 'autoplay'; });
   }
   close() {
+    MediaReader.readers.delete(this);
     this.closed = true;
     this.generation++;
     clearInterval(this.lease);

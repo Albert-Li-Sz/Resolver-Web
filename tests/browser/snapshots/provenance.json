@@ -1,0 +1,84 @@
+{
+  "capturedOn": "2026-10-31 Asia/Shanghai",
+  "environment": {
+    "platform": "linux/arm64",
+    "playwright": "1.64.1",
+    "image": "mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea",
+    "browser": "chromium",
+    "deviceScaleFactor": 1,
+    "threshold": 0,
+    "maxDiffPixels": 0
+  },
+  "reference": "Renderer snapshot before onsite safety/localization, retaining earlier uncommitted shared-workflow work",
+  "referenceSourceSha256": {
+    "animator.js": "2dc130a6b4c40d485211385fbcc756b3ba61d8bab64e4847fd7a6377114a5ae8",
+    "digital-font.js": "1ead283c1915f9bee9d4ba5d75facad8c7c226c47bccd9ae817f3af80e669622",
+    "presentation-glyphs.js": "c3ccd00b26ac331eed4fe11bc44e01e3ebb22808c51219d4718b047b7d35cd64",
+    "presentation-metrics.js": "38841a4fd654ef80d494a47135b3f8a7189acb83dbfa06f283c00be7d33750d9",
+    "presentation-state.js": "d9530da6512c44688f5c5fac10afd395b08f48aedc4dcf6da57633aec775b99a",
+    "presentation-view.js": "4d7397f230e0cc069d84b40c10d682af1023e1968892b78935f0a3417280c682",
+    "resolver-view.js": "137fc01c357f87215b6c4726c45711e3b2409e3268d996b5e733a321788b1c78",
+    "shaded-rect.js": "1173d7c1a53e93ffa5bdd841a16a9202a8ee1f0626a8e7920de2327ed4b87903",
+    "text.js": "c086ee75f398f1a171a12d271b057ced7ed34be1d9f9621ecd20e9b9e3292413"
+  },
+  "englishPrechangeSnapshots": {
+    "en-1080-calibration.png": "0d6d977c4d4fdfef818287c7c9d0356c28e15c2cf3f502ff50f30f526ef2e381",
+    "en-1080-clock.png": "139f24810added024d1b38ba5c8ec2f643b655c406f16539d9c35a0aeb68c89a",
+    "en-1080-countdown.png": "ac04f6e2a5fd28c7e0c5f009241f2d09acf4f02a335f0b782878e96c95551f20",
+    "en-1080-first-solves.png": "8298cf4152f1715eb66a567da50c1458f3272eab2e6a34aaebf9a71ee8566c95",
+    "en-1080-leaders.png": "8968c5b088f96b0aab17cd92aa593ef790427d79292dd47868612f34c338f01d",
+    "en-1080-logo.png": "1604d64036c145984ca1990a96d0c474aabfdbb87667a65ab43537b49b295658",
+    "en-1080-message.png": "728bee304b848378cf9ec1a1d9fcba438f2495f7d578e4499d7eea3e4c24e8a3",
+    "en-1080-photos.png": "a7fb2656c74b2ca3d39ad65d35e0438662523b43a3181aedd4a5bea02935dad3",
+    "en-1080-queue.png": "0fbfacb88e1fa6fdf530a6496d8b83321596f8b1da57e352c7aa93f4c91b000b",
+    "en-1080-scoreboard.png": "a115180054e7f358256342d9a0bfd25eac0cb56e7374c881086f66b7f57c8f48",
+    "en-1080-team.png": "ee8aded3c0908eaa6fe4ba9180f16f04de56e93fa3c158392a99982f141fb0b2",
+    "en-1440-calibration.png": "08f98ceb2809a7e53af6e1a2a1cc42f17b6e648091a8c20fbad6838ff394fa7b",
+    "en-1440-clock.png": "2b8253793396c7cd9dad2f4db3674425c385dc99fe481c69b38833333e64b5ec",
+    "en-1440-countdown.png": "65e88162ccd5c31ac00a18a58dab39cb2758c49cdee3bfc4f05ee246b1b27e3b",
+    "en-1440-first-solves.png": "314b162f2ad5222983f15c17f3c4bb20521ddede94799eb55b1aa51d470d6b23",
+    "en-1440-leaders.png": "fbf5afa84e63add0c14a1c8f9bec2652f4a71b9306074af3fbe0c22d2e375c4b",
+    "en-1440-logo.png": "a24e80f799be95cc385564544f7083dfa10ff8999ea178b828c73bd67c27f092",
+    "en-1440-message.png": "3dde85c6563e9aa8a49852fdb94bb0b595ebd3fdb823e4809c4b4b3a0ab1b94f",
+    "en-1440-photos.png": "290e17feb76de27575e276234ba1c6972bebf010ee6f0c56fd8ae6ed784c581b",
+    "en-1440-queue.png": "b5c7769fa49bf4663df59fb8160d428fc2ebbfe494887c08e149981453da7d27",
+    "en-1440-scoreboard.png": "f9ad2648393d915874d330be26e0317dcf64de83fb2118cfeddf9c8d1857164f",
+    "en-1440-team.png": "354841bed5ad104c4ba5da655935649d79dc88ff67aabaac6109dca3cbf4f213",
+    "en-2160-calibration.png": "e8d2aebe4480413dd1a08805cb2ae8e6109e0e21aef60724f23281066dfc443b",
+    "en-2160-clock.png": "2e45eca7145aa990571eb294c7c61df02d3c40d14b32ae7aafa77ca86ebf744a",
+    "en-2160-countdown.png": "5daa7cf4957f523d0080e2436c0ed56a62fd1edf7b1e16df5702b2c7e524bdee",
+    "en-2160-first-solves.png": "3f036b6eea6394dd2775ccbafa30b318b90db772d7accece3d8d9d197739b8cf",
+    "en-2160-leaders.png": "fa9e3fa943704c997df1957e678c01f25b102d94cb7566be4ff1b1434699d934",
+    "en-2160-logo.png": "b3d00f57d04243fb12364e97a50ade83db2266242ec4984fb751ee1195840121",
+    "en-2160-message.png": "f402902c57312670a34eb5e756cf472ed58cfeb71ef619f9efb358f7459a8493",
+    "en-2160-photos.png": "82422f2bd694534cbfe838d8a8c4b575d738e1eaa8a55b86b7ee26af18457b9c",
+    "en-2160-queue.png": "838667fec059c4b9dff343dc5c1ee8769f587d51625dd9a9577215f0d194d668",
+    "en-2160-scoreboard.png": "1d7e7430960b47575931671ae24fbf68459c9689f62c9591fa6bb002cf053e1e",
+    "en-2160-team.png": "141f2efa47eba7ce9465a84c60fe77bf01f6714e1a7b825f216b856c5ed33198"
+  },
+  "assets": {
+    "fixture": "623be36b225dc2f254b1c35f313d7ec7feb09d04c6635ac973a560fd88edccf2",
+    "helvetica": "b917e29bbb97b5c18e9500a18a87ee989d5d61eb5b39a417043a8d6f16ecf8ac",
+    "notoSansSC": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+    "logo": "e860937e89da192271e1f510ab18d30a71a6ab7816e4963c4d7a83fbc0dba432",
+    "fixedVideoSegment": "0a8d16270c9567726537f8ae3f3fc043d90e0a9016e18e54149c154c60a568ee"
+  },
+  "fixedVideo": {
+    "pattern": "smptebars",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "durationSeconds": 3,
+    "codec": "h264 baseline, all intra, fixed QP 18",
+    "decodedFrameMD5": "9184492a728a06a261cfe66d42ab70b4"
+  },
+  "liveVisualEnvironment": {
+    "args": [
+      "--disable-gpu",
+      "--disable-lcd-text",
+      "--disable-font-subpixel-positioning"
+    ],
+    "contestStatus": "over",
+    "frame": "fixed SMPTE bars"
+  }
+}

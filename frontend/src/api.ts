@@ -15,7 +15,7 @@ export async function api(
     signal: AbortSignal.timeout(15000),
   });
   const result = await r.json();
-  if (!r.ok) throw Error(result.error || `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(Error(result.error || `HTTP ${r.status}`), { status: r.status });
   return result;
 }
 export function subscribe(

@@ -1,0 +1,120 @@
+{
+  "checkedAt": "2026-10-31T06:10:32.630Z",
+  "branch": "codex/production-platform",
+  "version": "1.3.0",
+  "published": false,
+  "tests": {
+    "node": {
+      "passed": 220,
+      "failed": 0
+    },
+    "browser": {
+      "passed": 121,
+      "workflows": 13,
+      "visual": 108,
+      "threshold": 0,
+      "maxDiffPixels": 0
+    },
+    "realMedia": {
+      "passed": 2,
+      "playbackProtocols": [
+        "HLS fallback",
+        "WebRTC/WHEP"
+      ],
+      "lifecycle": [
+        "publisher loss and recovery",
+        "standby and sound restore",
+        "rename without reconnect",
+        "transport change reconnect",
+        "deletion stops playback and gateway job"
+      ],
+      "reservationCount": 10,
+      "reservationCountIsNotDecodedVideoLoad": true
+    }
+  },
+  "baselinePolicy": {
+    "expectedFailure": true,
+    "exitCode": 1,
+    "baselineCreated": false
+  },
+  "englishBaselinesUnchanged": 33,
+  "fontHashMatches": true,
+  "preserved": {
+    "pairedScreens": 1,
+    "workspaceCount": 1,
+    "outputToken": true,
+    "displayIdentity": true,
+    "manualResolver": {
+      "index": 172,
+      "revision": 95,
+      "currentAction": 94,
+      "totalActions": 94
+    }
+  },
+  "containers": {
+    "images": [
+      {
+        "tag": "resolver-web:onsite-qa",
+        "architecture": "arm64",
+        "id": "sha256:5e21485366274d4e2070a2604bfa740635adf2b620435170dda1d186166c6088"
+      },
+      {
+        "tag": "resolver-web:onsite-amd64",
+        "architecture": "amd64",
+        "id": "sha256:26808d038526b992a9d8538262c8215771e6d0a4a74e2cee29fb0ddfbf8e92c1"
+      },
+      {
+        "tag": "resolver-media-worker:onsite-qa",
+        "architecture": "arm64",
+        "id": "sha256:b7b6b700a6d9ebc73adb9d1194d89f88d0269bceb71328ea4c1b16b7d6a1e055"
+      },
+      {
+        "tag": "resolver-media-worker:onsite-amd64",
+        "architecture": "amd64",
+        "id": "sha256:614ad63a6350781f45d5686f677b15ad360c71b376e1abbe55201b76abf047e1"
+      }
+    ],
+    "architectures": "arm64 native and amd64 Docker Desktop emulation",
+    "restartAndRollback": true,
+    "upgradeFromOriginalV130Volume": true
+  },
+  "performance": {
+    "file": "onsite-performance.json",
+    "qualification": "Ten IAB 2K displays and four real 1080p30 HLS videos on one host; not a physical venue test"
+  },
+  "pendingReleaseGates": [
+    "Native OBS acceptance",
+    "Ten physical display computers and venue LAN/LED stability",
+    "Four simultaneous WebRTC video outputs"
+  ],
+  "remoteActionsRun": false,
+  "sourceSha256": {
+    "frontend/src/Outputs.tsx": "1b147a17a6c56c9ce5f80bbadb10263d855372f45a276375a7b251bd6e681664",
+    "frontend/src/Stage.tsx": "5a8767937c30f47c6829d7d93486bddd77b24b95577dcec630b6a60b7e81384c",
+    "frontend/src/Live.tsx": "74961ffe8e753f8ce8eb66833f563eaa09e73331f035241c757be3b43ccd58e0",
+    "frontend/src/LiveView.tsx": "6d7865b2f030d1fd2d71dc8f3233d2eda73d8024ec88f1cf82e747e33aac2294",
+    "frontend/src/Admin.tsx": "965f8dcffcd66ba12e4e7a7e21a664bde5e85de20603620edab29a2f32e602a4",
+    "frontend/src/Contest.tsx": "14a3590051ac03b7f5115577ef9a0499002e02988775c6aee6776dc052845084",
+    "frontend/src/ContestResources.tsx": "1618afa2b3582d94a6b45b30c1c592a0093da2735dc982b9c7905f6575d7b3be",
+    "frontend/src/Health.tsx": "20397a912962cb989dcbf7a6ad60e4818ba8b0b829eb2284ca19c50dbd1f5e63",
+    "frontend/src/Confirm.tsx": "1cd8e2551bef440391f0c64aa83a9c0fc258efddb71938912de4d3a4109574bf",
+    "frontend/src/useOutputControls.tsx": "9f0da9509537d8ae357f4c9fd2f5cf8cb58d912607e762ef994155749b392a44",
+    "frontend/src/media.ts": "dc03614bcb30e014ae51e17e67d4c07091abc80259d954b388ac063f148cbf4c",
+    "frontend/vendor/icpc-live/components/atoms/ShrinkingBox.tsx": "3dc48c248e6d0e4ee1db5498566dcb19d420bbf23fa7685d92049f1d1efa2750",
+    "frontend/vendor/icpc-live/components/organisms/holder/TeamMediaHolder.tsx": "d57cb81e9ee39f3166e0e00ba774f47f4a42118eace680636319a741c9fe1cbf",
+    "public/js/render/presentation-view.js": "79012f34ac49241487df11aa1d3663a8d849848665c45d010e10cbf6d60a98ed",
+    "public/js/render/presentation-locale.js": "b907822ce7e1315fc2415dd6b6dc912b2783914e5e5e2544fb8ce586e85b8b3c",
+    "public/js/render/text.js": "75c470dc182564139d956f78ad38c9d5128b85d74ed334a745b38cf08a244cef",
+    "server/platform/store.js": "81a4850d5296cb5611e384057d7378a59520a02c3e0967c3d56169dce90156b0",
+    "server/platform/routes.js": "21cbf76979e96818fb3d77529977e38561fd5be7ea6ccf5ad3e1530d1967b484",
+    "server/platform/health.js": "2cd713c29b10422e60e19324bd455beac12040ba3c4b794070adb7aa0bc30dab",
+    "server/platform/emergency.js": "744d390ab05a619e620b1bc29def9dae095f1a5c493ccf53197a31a9c7b1cf58",
+    "media-worker/index.js": "17eb3c513041152297ee15ad514bece875ee5121a43545784e1515586e0d45a7",
+    "tests/browser/workflows.spec.ts": "a8e3e0d2ba5a0a7705c62e569b42643619fb5322f4a13676e7b13a74c02d1d68",
+    "tests/browser/visual.spec.ts": "82c28f42a57ef264d6d5704341472b81bfd8821fad8ca3b4003cc3b32c486084",
+    "tests/browser/live-visual.spec.ts": "8ff72eba63d1dea36c1949eab79e4bd351087780f24d8094f4d1ccd2d1a9465a",
+    "tests/browser/media.spec.ts": "4b89a15f48966a6fecc6adb7e8ecdd676a2d47b4930983cd1081e718ab2ffc4b",
+    "playwright.config.ts": "553a42254073fe25b9d936cf78adebd038eaf0611862d8381051c8e7233de88c",
+    ".github/workflows/browser.yml": "1b511704c7da127e04ff311fda1c3597e3d4b4a638e54f5c567086cb20ca6cff"
+  }
+}

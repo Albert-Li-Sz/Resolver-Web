@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api, subscribe, safeRead, safeWrite } from "./api";
 import { Stage, type StageHandle } from "./Stage";
-import {
-  labels,
-  widgetLabels,
-  type AnyRecord,
-  type Scene,
-  type Item,
-  type Program,
-} from "./types";
-import { Field, Button, type Run } from "./ui";
+import type { AnyRecord } from "./types";
+import { Button } from "./ui";
 import { subscribeDisplay } from "./display-channel";
 import {
   readDisplayCache,
   writeDisplayCache,
 } from "../../public/js/display-cache.js";
+import { useOutputControls } from "./useOutputControls";
+import { useOutputHeartbeat } from "./Health";
+import {
+  OutputArea,
+  ProfileFields,
+  outputProfile,
+  captureOutput,
+} from "./OutputProfile";
 export function Display() {
   const [identity, setIdentity] = useState<AnyRecord | null>(() => {
     const screen = new URLSearchParams(location.search).get("screen");
@@ -25,6 +26,7 @@ export function Display() {
   const [device, setDevice] = useState<AnyRecord | null>(null);
   const [online, setOnline] = useState(false);
   const [error, setError] = useState("");
+  const [heartbeatError, setHeartbeatError] = useState("");
   const [settings, setSettings] = useState<AnyRecord>(
     () =>
       safeRead("icpc.screen.settings.v1") || {
@@ -32,7 +34,7 @@ export function Display() {
         ratio: 16 / 9,
       },
   );
-  const [controls, setControls] = useState(true);
+  const controls = useOutputControls(identity?.id || "unpaired");
   const handle = useRef<StageHandle | null>(null);
   const applied = useRef(-1);
   const latest = useRef(device);
@@ -40,6 +42,8 @@ export function Display() {
   const [clockOffset, setClockOffset] = useState(
     () => Number(safeRead(`icpc.display.clock.${identity?.id}`)) || 0,
   );
+  const clockRef = useRef(clockOffset);
+  clockRef.current = clockOffset;
   async function register() {
     try {
       const v = await api("/displays/register", {});
@@ -60,6 +64,7 @@ export function Display() {
       return;
     }
     applied.current = -1;
+    setHeartbeatError("");
     setClockOffset(Number(safeRead(`icpc.display.clock.${identity.id}`)) || 0);
     history.replaceState(null, "", `/presentations/?screen=${identity.id}`);
     setSettings(
@@ -114,12 +119,16 @@ export function Display() {
     let capturing = false,
       beating = false,
       thumbnail: string | undefined;
+    let capturedAt = 0;
     const capture = async () => {
       if (capturing) return;
       capturing = true;
       try {
         const next = await handle.current?.capture();
-        if (active && next) thumbnail = next;
+        if (active && next) {
+          thumbnail = await captureOutput(next);
+          capturedAt = Date.now();
+        }
       } catch {
         /* A screenshot must never interrupt heartbeats. */
       } finally {
@@ -137,7 +146,13 @@ export function Display() {
           {
             revision: applied.current,
             thumbnail,
-            clockOffset,
+            clockOffset: clockRef.current,
+            health: handle.current
+              ? {
+                  ...handle.current.health(),
+                  thumbnailAgeMs: capturedAt ? Date.now() - capturedAt : null,
+                }
+              : undefined,
           },
           "POST",
           headers,
@@ -145,9 +160,10 @@ export function Display() {
         const offset = v.serverTime - (started + Date.now()) / 2;
         if (!active) return;
         setClockOffset(offset);
+        setHeartbeatError("");
         safeWrite(`icpc.display.clock.${identity.id}`, offset);
-      } catch (e) {
-        if (active) setError((e as Error).message);
+      } catch {
+        if (active) setHeartbeatError("状态上报失败，正在重试");
       } finally {
         beating = false;
       }
@@ -162,12 +178,22 @@ export function Display() {
       if (pendingCache) void persist();
     };
   }, [identity?.id]);
-  const update = (patch: AnyRecord) =>
-    setSettings((old: AnyRecord) => {
-      const next = { ...old, ...patch };
-      safeWrite(`icpc.screen.settings.${identity?.id || "default"}`, next);
-      return next;
-    });
+  const profile = outputProfile(device?.outputProfile || settings);
+  const update = async (next: AnyRecord) => {
+    try {
+      const saved = await api(
+        `/displays/${identity!.id}/settings`,
+        { revision: device!.revision, outputProfile: next },
+        "PUT",
+        { "X-Display-Token": identity!.token },
+      );
+      setDevice(saved);
+      setSettings(next);
+      safeWrite(`icpc.screen.settings.${identity!.id}`, next);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
   if (!device?.paired)
     return (
       <main className="pair-screen">
@@ -199,93 +225,64 @@ export function Display() {
         ) : (
           <p>正在生成链接码…</p>
         )}
-        {error ? <p role="alert">{error}</p> : null}
+        {error || heartbeatError ? <p role="alert">{error || heartbeatError}</p> : null}
         <Button className="secondary" onClick={() => void register()}>
           新建独立展示屏
         </Button>
       </main>
     );
   return (
-    <div className="output-shell" onPointerMove={() => setControls(true)}>
-      <Stage
-        state={device.state}
-        program={{ ...device, clockOffset }}
-        headers={{
-          "X-Display-Id": identity!.id,
-          "X-Display-Token": identity!.token,
-        }}
-        hidden={device.hidden}
-        resolution={settings.resolution}
-        ratio={settings.ratio}
-        handle={handle}
-        onApplied={(rev) => {
-          if (applied.current !== rev) {
-            applied.current = rev;
-            void api(
-              `/displays/${identity!.id}/heartbeat`,
-              { revision: rev, appliedAt: Date.now() + clockOffset },
-              "POST",
-              { "X-Display-Token": identity!.token },
-            ).catch(() => {});
-          }
-        }}
-      />
-      {controls ? (
+    <div className="output-shell">
+      <OutputArea profile={profile}>
+        {(resolution, ratio) => (
+          <Stage
+            state={device.state}
+            program={{ ...device, clockOffset }}
+            headers={{
+              "X-Display-Id": identity!.id,
+              "X-Display-Token": identity!.token,
+            }}
+            hidden={device.hidden}
+            resolution={resolution}
+            ratio={ratio}
+            handle={handle}
+            onApplied={(rev) => {
+              if (applied.current !== rev) {
+                applied.current = rev;
+                void api(
+                  `/displays/${identity!.id}/heartbeat`,
+                  { revision: rev, appliedAt: Date.now() + clockOffset },
+                  "POST",
+                  { "X-Display-Token": identity!.token },
+                ).catch(() => {});
+              }
+            }}
+          />
+        )}
+      </OutputArea>
+      {controls.restore}
+      {controls.hint}
+      {controls.visible ? (
         <div className="output-controls">
           <strong>{device.name}</strong>
           <span>{online ? "已同步" : "连接中断 · 保留画面"}</span>
-          <OutputSettings settings={settings} update={update} />
-          <Button
-            onClick={() => {
-              handle.current?.audio();
-              void document.documentElement
-                .requestFullscreen()
-                .catch(() => setError("请使用浏览器全屏功能"));
-              setControls(false);
-            }}
-          >
-            启用全屏与声音
+          <ProfileFields value={profile} change={update} />
+          {error || heartbeatError ? <span role="alert">{error || heartbeatError}</span> : null}
+          <Button onClick={() => void controls.toggleFullscreen(setError)}>
+            {controls.fullscreen ? "退出全屏" : "全屏"}
+          </Button>
+          <Button className="secondary" onClick={() => handle.current?.audio()}>
+            启用声音
           </Button>
           <Button className="secondary" onClick={() => void register()}>
             新建屏幕
           </Button>
-          <Button className="secondary" onClick={() => setControls(false)}>
+          <Button className="secondary" onClick={controls.hide}>
             隐藏控制栏
           </Button>
         </div>
       ) : null}
     </div>
-  );
-}
-function OutputSettings({
-  settings,
-  update,
-}: {
-  settings: AnyRecord;
-  update: (p: AnyRecord) => void;
-}) {
-  return (
-    <>
-      <select
-        aria-label="渲染分辨率"
-        value={settings.resolution}
-        onChange={(e) => update({ resolution: Number(e.target.value) })}
-      >
-        <option value="1080">1080p</option>
-        <option value="1440">2K</option>
-        <option value="2160">4K</option>
-      </select>
-      <select
-        aria-label="LED 屏幕比例"
-        value={settings.ratio}
-        onChange={(e) => update({ ratio: Number(e.target.value) })}
-      >
-        <option value={16 / 9}>16:9</option>
-        <option value={32 / 9}>32:9</option>
-        <option value={4 / 3}>4:3</option>
-        <option value={1}>1:1</option>
-      </select>
-    </>
   );
 }
 export function Output({ transparent }: { transparent: boolean }) {
@@ -294,8 +291,10 @@ export function Output({ transparent }: { transparent: boolean }) {
   const [online, setOnline] = useState(false);
   const [error, setError] = useState("");
   const handle = useRef<StageHandle | null>(null);
-  const [controls, setControls] = useState(
-    !new URLSearchParams(location.search).has("clean"),
+  useOutputHeartbeat(token, transparent ? "overlay" : "program", handle);
+  const controls = useOutputControls(
+    transparent ? "live-overlay" : "live-program",
+    new URLSearchParams(location.search).has("clean"),
   );
   const [settings, setSettings] = useState<AnyRecord>(
     () =>
@@ -326,51 +325,46 @@ export function Output({ transparent }: { transparent: boolean }) {
   }, [transparent]);
   return (
     <div className={"output-shell " + (transparent ? "transparent" : "")}>
-      {error ? (
-        <p className="output-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <Stage
-        state={state}
-        transparent={transparent}
-        resolution={settings.resolution}
-        ratio={settings.ratio}
-        headers={{ "X-Output-Token": token }}
-        muted={false}
-        handle={handle}
-      />
-      {controls ? (
+      <OutputArea
+        profile={outputProfile(
+          state?.broadcast?.outputProfiles?.[
+            transparent ? "overlay" : "program"
+          ] || settings,
+        )}
+      >
+        {(resolution, ratio) => (
+          <Stage
+            state={state}
+            transparent={transparent}
+            resolution={resolution}
+            ratio={ratio}
+            headers={{ "X-Output-Token": token }}
+            muted={false}
+            handle={handle}
+          />
+        )}
+      </OutputArea>
+      {controls.restore}
+      {controls.hint}
+      {controls.visible ? (
         <div className="output-controls">
           <span>{online ? "Live 正式输出" : "正在连接正式输出"}</span>
           {error ? <span>{error}</span> : null}
-          <OutputSettings
-            settings={settings}
-            update={(p) =>
-              setSettings((s: AnyRecord) => {
-                const n = { ...s, ...p };
-                safeWrite("icpc.screen.settings.v1", n);
-                return n;
-              })
-            }
-          />
           <Button
             onClick={() => {
               handle.current?.audio();
-              setControls(false);
             }}
           >
-            启用声音并隐藏控制栏
+            启用声音
           </Button>
           <Button
             className="secondary"
-            onClick={() => {
-              void document.documentElement
-                .requestFullscreen()
-                .catch(() => setError("请使用浏览器全屏功能"));
-            }}
+            onClick={() => void controls.toggleFullscreen(setError)}
           >
-            全屏
+            {controls.fullscreen ? "退出全屏" : "全屏"}
+          </Button>
+          <Button className="secondary" onClick={controls.hide}>
+            隐藏控制栏
           </Button>
         </div>
       ) : null}

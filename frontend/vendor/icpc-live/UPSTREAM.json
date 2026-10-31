@@ -71,5 +71,5 @@
     "components/organisms/widgets/TeamView.tsx",
     "components/atoms/ShrinkingBox.tsx"
   ],
-  "notes": "Visual styles and geometry retain upstream source. Import paths and typecheck directives are mechanical changes. TeamView additionally accepts same-team media/layout updates from the platform controls. Text-width caching is in memory to tolerate unavailable/full localStorage and prevent stale font metrics across sessions."
+  "notes": "Visual styles and geometry retain upstream source. Import paths and typecheck directives are mechanical changes. TeamView additionally accepts same-team media/layout updates. TeamMediaHolder reconnects when transport revision changes and clears deleted sources; name-only edits keep the player. Text-width caching is in memory to tolerate unavailable/full localStorage. ShrinkingBox remeasures after web fonts load and compares the last applied text width so late fonts and changed text cannot retain a stale scale."
 }

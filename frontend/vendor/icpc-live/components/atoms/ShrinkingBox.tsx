@@ -1,7 +1,7 @@
 // @ts-nocheck
 import styled from "styled-components";
 import c from "../../config";
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 
 const TextShrinkingWrap = styled.div<{ align: string; fontFamily: string }>`
     overflow: hidden;
@@ -72,6 +72,8 @@ export const ShrinkingBox = React.memo(
         const containerRef = useRef<HTMLDivElement>(null);
         const widthRef = useRef(0);
         const textWidthRef = useRef(0);
+        const appliedTextWidthRef = useRef(0);
+        const [fontRevision, setFontRevision] = useState(0);
 
         const font = useMemo(() => {
             const weight = c.GLOBAL_DEFAULT_FONT_WEIGHT || "normal";
@@ -80,6 +82,18 @@ export const ShrinkingBox = React.memo(
 
         const textWidth = useMemo(() => {
             return getTextWidth(text, font);
+        }, [text, font, fontRevision]);
+
+        useEffect(() => {
+            let active = true;
+            // Canvas can initially measure a fallback while the web font loads.
+            // Recompute with the loaded face instead of keeping that first width.
+            void document.fonts?.load(font, String(text)).then(() => {
+                if (!active) return;
+                widths.delete(String(text) + ";" + font);
+                setFontRevision((value) => value + 1);
+            }).catch(() => {});
+            return () => { active = false; };
         }, [text, font]);
 
         useEffect(() => {
@@ -96,13 +110,14 @@ export const ShrinkingBox = React.memo(
             const updateTransform = (width: number) => {
                 if (
                     width === widthRef.current &&
-                    textWidthRef.current === textWidth
+                    appliedTextWidthRef.current === textWidthRef.current
                 )
                     return;
                 widthRef.current = width;
+                appliedTextWidthRef.current = textWidthRef.current;
                 const newScaleFactor = Math.min(
                     1,
-                    width / textWidthRef.current,
+                    width / Math.max(1, textWidthRef.current),
                 );
                 contentRef.style.transform = `scaleX(${newScaleFactor})`;
             };

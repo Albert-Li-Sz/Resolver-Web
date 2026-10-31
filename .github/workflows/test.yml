@@ -3,6 +3,8 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  browser:
+    uses: ./.github/workflows/browser.yml
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -45,4 +47,13 @@ jobs:
       - if: always()
         run: docker logs resolver-test
       - run: RESOLVER_ADMIN_KEY=ci-smoke-key node scripts/smoke-platform.mjs http://127.0.0.1:4180 verify-restart
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key node scripts/smoke-onsite.mjs http://127.0.0.1:4180
+      - run: docker restart resolver-test
+      - run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4180/api/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: RESOLVER_ADMIN_KEY=ci-smoke-key node scripts/smoke-onsite.mjs http://127.0.0.1:4180 verify-restart
       - run: docker build -t resolver-media-worker:test media-worker

@@ -1,0 +1,100 @@
+import test, { after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { hash } from '../server/platform/model.js';
+const directory = await mkdtemp(path.join(tmpdir(), 'icpc-onsite-api-'));
+process.env.RESOLVER_DATA_DIR = directory;
+process.env.RESOLVER_ADMIN_KEY = 'onsite-api-test';
+const { app, platform } = await import('../server/index.js');
+const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.once('listening', r));
+const base = `http://127.0.0.1:${server.address().port}`;
+after(async () => { platform.feeds.close(); platform.mediaMonitor.close(); server.closeAllConnections(); server.close(); await rm(directory, { recursive: true, force: true }); });
+const admin = { 'X-Resolver-Admin': 'onsite-api-test' };
+async function req(route, body, headers = admin, method = body === undefined ? 'GET' : 'POST') {
+  const r = await fetch(base + '/api' + route, { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const value = await r.json(); return { status: r.status, value };
+}
+const health = { visible: true, uptimeMs: 30000, renderAgeMs: 15, thumbnailAgeMs: 60, renderKind: 'static', media: [], url: 'rtsp://private-host', password: 'not-public' };
+test('output heartbeat is capability protected, private and independent of control/config versions', async () => {
+  const before = (await req('/platform')).value;
+  const body = { clientId: 'a'.repeat(32), kind: 'program', health };
+  assert.equal((await req('/broadcast/heartbeat', body, {})).status, 403);
+  assert.equal((await req('/broadcast/heartbeat', body, { 'X-Output-Token': 'wrong' })).status, 403);
+  assert.equal((await req('/broadcast/heartbeat', body, { 'X-Output-Token': before.broadcast.token })).status, 200);
+  const after = (await req('/platform')).value;
+  assert.equal(after.revision, before.revision);
+  assert.equal(after.broadcast.revision, before.broadcast.revision);
+  assert.equal(after.outputs[0].health.renderKind, 'static');
+  assert.equal(after.outputs[0].health.renderer, 'healthy');
+  assert.doesNotMatch(JSON.stringify(after.outputs), /private-host|not-public|password/);
+  assert.equal((await req('/platform', undefined, {})).status, 401);
+  const publicView = (await req('/broadcast/output', undefined, { 'X-Output-Token': before.broadcast.token })).value;
+  assert.equal(publicView.outputs, undefined); assert.equal(publicView.mediaHealth, undefined);
+  assert.equal((await req('/broadcast/heartbeat', { ...body, clientId: 'invalid' }, { 'X-Output-Token': before.broadcast.token })).status, 400);
+});
+test('link rotation compares its own revision and revokes old heartbeat capabilities', async () => {
+  const before = (await req('/platform')).value;
+  const tokenRevision = before.broadcast.tokenRevision;
+  assert.equal((await req('/broadcast/standby', { revision: before.broadcast.revision, enabled: true })).status, 200);
+  const rotated = await req('/broadcast/rotate-token', { tokenRevision });
+  assert.equal(rotated.status, 200);
+  assert.equal((await req('/broadcast/rotate-token', { tokenRevision })).status, 409);
+  assert.equal((await req('/broadcast/heartbeat', { clientId: 'a'.repeat(32), kind: 'program', health }, { 'X-Output-Token': before.broadcast.token })).status, 403);
+  assert.deepEqual((await req('/platform')).value.outputs, []);
+});
+test('display telemetry supports old clients, preserves the latest sample on acknowledgements and stays private', async () => {
+  const d = (await req('/displays/register', {}, {})).value;
+  await req('/displays/pair', { code: d.code, name: 'Health screen' });
+  const h = { 'X-Display-Token': d.token };
+  const before = (await req('/platform')).value;
+  const revision = before.displays.find(v => v.id === d.id).revision;
+  assert.equal((await req(`/displays/${d.id}/heartbeat`, { revision, health }, h)).status, 200);
+  assert.equal((await req(`/displays/${d.id}/heartbeat`, { revision }, h)).status, 200);
+  const after = (await req('/platform')).value;
+  const screen = after.displays.find(v => v.id === d.id);
+  assert.equal(screen.health.renderer, 'healthy'); assert.equal(screen.revision, revision);
+  const publicView = (await req(`/displays/${d.id}/state`, undefined, h)).value;
+  assert.equal(publicView.health, undefined); assert.equal(publicView.state.outputs, undefined);
+  assert.equal((await req(`/displays/${d.id}/heartbeat`, { health: { media: Array(13).fill({}) } }, h)).status, 400);
+});
+test('media destructive operations compare source revision rather than unrelated live controls', async () => {
+  const m = (await req('/media/sources', { name: 'Camera', kind: 'publish', role: 'camera' })).value;
+  assert.equal((await req(`/media/sources/${m.id}`, { name: 'Updated', sourceRevision: 0 }, admin, 'PUT')).status, 200);
+  assert.equal((await req(`/media/sources/${m.id}`, { sourceRevision: 0 }, admin, 'DELETE')).status, 409);
+  const s = (await req('/platform')).value;
+  await req('/broadcast/standby', { revision: s.broadcast.revision, enabled: false });
+  assert.equal((await req(`/media/sources/${m.id}`, { sourceRevision: 1 }, admin, 'DELETE')).status, 200);
+});
+test('an on-air change cannot race a media confirmation, while telemetry keeps the captured version valid', async () => {
+  const m = (await req('/media/sources', { name: 'Protected camera', kind: 'publish', role: 'camera' })).value;
+  const before = (await req('/platform')).value;
+  const preview = await req('/broadcast/preview', { revision: before.broadcast.revision, scene: { ...before.broadcast.preview, mediaIds: [m.id] } }, admin, 'PUT');
+  await req('/broadcast/take', { revision: preview.value.revision });
+  assert.equal((await req(`/media/sources/${m.id}`, { sourceRevision: 0, expectedBroadcastRevision: before.broadcast.revision }, admin, 'DELETE')).status, 409);
+  const current = (await req('/platform')).value;
+  await req('/broadcast/heartbeat', { clientId: 'b'.repeat(32), kind: 'program', health }, { 'X-Output-Token': current.broadcast.token });
+  assert.equal((await req(`/media/sources/${m.id}`, { sourceRevision: 0, expectedBroadcastRevision: current.broadcast.revision }, admin, 'DELETE')).status, 200);
+});
+test('media connection revision changes for transport edits, independently of naming and team metadata', async () => {
+  const m = (await req('/media/sources', { name: 'Versioned source', kind: 'publish' })).value;
+  assert.equal(m.streamRevision, 0);
+  const rename = await req(`/media/sources/${m.id}`, { name: 'Renamed source', sourceRevision: 0 }, admin, 'PUT');
+  assert.equal(rename.value.streamRevision, 0);
+  const connection = await req(`/media/sources/${m.id}`, { transcode: true, sourceRevision: 1 }, admin, 'PUT');
+  assert.equal(connection.value.streamRevision, 1);
+  const role = await req(`/media/sources/${m.id}`, { role: 'audio', sourceRevision: 2 }, admin, 'PUT');
+  assert.equal(role.value.streamRevision, 1);
+});
+test('removing media invalidates previously issued playback credentials immediately', async t => {
+  const prior = process.env.MEDIA_INTERNAL_KEY;
+  process.env.MEDIA_INTERNAL_KEY = 'deleted-source-auth-test';
+  t.after(() => { if (prior === undefined) delete process.env.MEDIA_INTERNAL_KEY; else process.env.MEDIA_INTERNAL_KEY = prior; });
+  const m = (await req('/media/sources', { name: 'Revoked source', kind: 'publish' })).value;
+  const expiry = Date.now() + 60000, mediaPath = `play-${m.id}`;
+  const auth = () => fetch(base + '/internal/media/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: String(expiry), password: hash(`deleted-source-auth-test:${mediaPath}:${expiry}`), action: 'read', path: mediaPath }) });
+  assert.equal((await auth()).status, 200);
+  await req(`/media/sources/${m.id}`, { sourceRevision: 0 }, admin, 'DELETE');
+  assert.equal((await auth()).status, 403);
+});

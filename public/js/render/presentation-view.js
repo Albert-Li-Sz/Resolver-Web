@@ -1,5 +1,13 @@
 /* Web port of ICPC Tools v2.6.1331 presentation geometry. See /licenses/icpc-tools.txt. */
-import { initFonts, fontsReady, setFont, drawText, textWidth } from "./text.js";
+import {
+  initFonts,
+  fontsReady,
+  setFont,
+  drawText,
+  textWidth,
+  CJK_FONT_FAMILY,
+} from "./text.js";
+import { presentationWord } from "./presentation-locale.js";
 import { fillRoundedRect, strokeRoundedRect } from "./shaded-rect.js";
 import { drawDigital, digitalWidth } from "./digital-font.js";
 import { metrics } from "./presentation-metrics.js";
@@ -56,6 +64,7 @@ export function scrollPage(elapsed) {
 }
 export class PresentationView {
   constructor() {
+    this.locale = "en";
     this.queue = new JudgeQueueState();
     this.standingsMotion = new StandingsMotion();
     this.imageRevision = 0;
@@ -119,6 +128,20 @@ export class PresentationView {
       bold = options.bold !== false,
       face = glyphs[bold ? 1 : 0],
       unicode = [...text];
+    if (this.locale === "zh-CN" && /[^\x00-\x7f]/.test(text)) {
+      setFont(ctx, font.size, { bold, family: CJK_FONT_FAMILY });
+      const m = ctx.measureText(text),
+        ascent = m.actualBoundingBoxAscent || font.ascent,
+        descent = m.actualBoundingBoxDescent || 0;
+      const scale = Math.min(1, font.height / Math.max(1, ascent + descent));
+      return drawText(
+        ctx,
+        text,
+        trunc(x),
+        trunc(y - font.ascent + ascent * scale),
+        { size: font.size * scale, bold, ...options, family: CJK_FONT_FAMILY },
+      );
+    }
     if (!unicode.every((c) => face[c.codePointAt(0)]))
       return drawText(ctx, text, trunc(x), trunc(y), {
         size: font.size,
@@ -185,12 +208,7 @@ export class PresentationView {
       clockFont = this.metric(ctx, h, 5, trunc(h * 0.021) * 1.25),
       headerFont = this.metric(ctx, h, 3, trunc(h * 0.021)),
       rowFont = this.metric(ctx, h, 0, L.size * 1.25);
-    const titleText = {
-      scoreboard: "Current Standings",
-      leaders: "Current Medal Contenders",
-      queue: "Judge Queue",
-      "first-solves": "First to Solve",
-    }[type];
+    const titleText = presentationWord(this.locale, type);
     ctx.fillStyle = "#000";
     ctx.fillRect(0, title, w, header + 2);
     ctx.fillStyle = "#fff";
@@ -204,7 +222,9 @@ export class PresentationView {
     if (clock.elapsed !== null) {
       this.text(
         ctx,
-        ended ? "Contest is over" : formatClock(clock.elapsed),
+        ended
+          ? presentationWord(this.locale, "ended")
+          : formatClock(clock.elapsed),
         w / 12,
         clockFont.ascent + 2,
         clockFont,
@@ -212,7 +232,9 @@ export class PresentationView {
       );
       this.text(
         ctx,
-        ended ? "Contest is over" : formatClock(clock.remaining, false),
+        ended
+          ? presentationWord(this.locale, "ended")
+          : formatClock(clock.remaining, false),
         (w * 11) / 12,
         clockFont.ascent + 2,
         clockFont,
@@ -223,17 +245,20 @@ export class PresentationView {
       nameX = 8 + this.width(ctx, "199 ", rowFont) + trunc(rowHeight);
     this.text(
       ctx,
-      type === "first-solves" ? "Time" : "Rank",
+      presentationWord(
+        this.locale,
+        type === "first-solves" ? "solveTime" : "rank",
+      ),
       8 + this.width(ctx, "199", rowFont) / 2,
       y,
       headerFont,
       { align: "center" },
     );
-    this.text(ctx, "Name", nameX, y, headerFont);
+    this.text(ctx, presentationWord(this.locale, "team"), nameX, y, headerFont);
     if (type === "first-solves")
       this.text(
         ctx,
-        "Problem",
+        presentationWord(this.locale, "problem"),
         w - 8 - this.width(ctx, "9999", rowFont) / 2,
         y,
         headerFont,
@@ -242,7 +267,7 @@ export class PresentationView {
     else {
       this.text(
         ctx,
-        "Solved",
+        presentationWord(this.locale, "solved"),
         w -
           8 -
           this.width(ctx, " 9999", rowFont) -
@@ -253,7 +278,7 @@ export class PresentationView {
       );
       this.text(
         ctx,
-        "Time",
+        presentationWord(this.locale, "penalty"),
         w - 8 - this.width(ctx, "9999", rowFont) / 2,
         y,
         headerFont,
@@ -457,12 +482,9 @@ export class PresentationView {
     const f = this.metric(ctx, h, 8, 24),
       fh = f.height,
       fx = fh * 2,
-      items = [
-        "First to Solve",
-        "Solved Problem",
-        "Rejected Submission",
-        "Pending Submission",
-      ];
+      items = ["first", "accepted", "rejected", "pending"].map((key) =>
+        presentationWord(this.locale, key),
+      );
     const width = 30 + fx + 10 + this.width(ctx, items[2], f),
       height = 30 + 45 + fh * 4,
       x = w - 30 - width,
@@ -616,9 +638,13 @@ export class PresentationView {
     ctx,
     data,
     item,
-    { width: w, height: h, now, elapsed, restore = false },
+    { width: w, height: h, now, elapsed, restore = false, locale = "en" },
   ) {
-    if (!fontsReady()) return false;
+    this.locale = locale === "zh-CN" ? locale : "en";
+    if (!fontsReady(this.locale)) {
+      void initFonts(this.locale);
+      return false;
+    }
     if (this.lastType !== item.type) {
       this.queue = new JudgeQueueState();
       this.standingsMotion = new StandingsMotion();
@@ -631,6 +657,7 @@ export class PresentationView {
         item.type === "scoreboard" && (phase < 1000 || phase > repeat - 1000),
       cacheable = !["queue", "photos"].includes(item.type) && !moving,
       cacheKey = JSON.stringify([
+        this.locale,
         item,
         w,
         h,
@@ -805,6 +832,24 @@ export class PresentationView {
           { align: "center", maxWidth: w - 30 },
         );
       }
+    } else if (type === "standby") {
+      this.fit(
+        ctx,
+        data?.contest?.logo || "/assets/img/icpc-logo.png",
+        w * 0.25,
+        h * 0.12,
+        w * 0.5,
+        h * 0.45,
+      );
+      const f = this.font(ctx, h / 11);
+      this.text(
+        ctx,
+        presentationWord(this.locale, "standby"),
+        w / 2,
+        h * 0.78,
+        f,
+        { align: "center", maxWidth: w * 0.85 },
+      );
     } else if (type === "photos") {
       const urls = item.images || [],
         index = Math.floor(elapsed / 12000) % Math.max(1, urls.length),

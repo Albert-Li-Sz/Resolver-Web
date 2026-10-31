@@ -46,7 +46,7 @@ app.post('/internal/media/auth', (req, res) => {
   const source = platform.store.state.media.find(m => `source-${m.id}` === mediaPath && m.kind === 'publish');
   if (action === 'publish' && source && user === 'publisher' && equalSecret(password, source.token)) return res.sendStatus(200);
   const expiry = Number(user);
-  if (action === 'read' && /^play-[a-f0-9]{32}$/.test(mediaPath || '') && expiry > Date.now() && expiry < Date.now()+120000 && equalSecret(password, hash(`${key}:${mediaPath}:${expiry}`))) return res.sendStatus(200);
+  if (action === 'read' && /^play-[a-f0-9]{32}$/.test(mediaPath || '') && platform.store.state.media.some(m => `play-${m.id}` === mediaPath) && expiry > Date.now() && expiry < Date.now()+120000 && equalSecret(password, hash(`${key}:${mediaPath}:${expiry}`))) return res.sendStatus(200);
   res.sendStatus(403);
 });
 const sessions = new LiveSessionStore();
@@ -284,7 +284,8 @@ app.get(['/view', '/view/'], (req, res) => {
 
 // Explicit module routes precede legacy static files; unknown paths remain real 404s.
 const frontend = path.join(ROOT, 'public', 'platform', 'index.html');
-app.get(['/', '/live', '/live/*path', '/presentation-admin', '/presentation-admin/*path', '/presentations', '/presentations/*path'], (req, res) => {
+for (const tab of ['contest','assets','media']) app.get([`/live/${tab}`, `/live/${tab}/`], (_q,r) => r.redirect(302, `/contest/?tab=${tab === 'contest' ? 'connection' : tab}`));
+app.get(['/', '/contest', '/contest/*path', '/live', '/live/*path', '/presentation-admin', '/presentation-admin/*path', '/presentations', '/presentations/*path'], (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(frontend);
 });

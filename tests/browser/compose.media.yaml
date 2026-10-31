@@ -1,0 +1,43 @@
+services:
+  resolver:
+    build: ../..
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      RESOLVER_ADMIN_KEY: browser-regression-admin
+      MEDIA_INTERNAL_KEY: isolated-browser-test-internal
+      MEDIA_WORKER_URL: http://media-worker:8091
+      MEDIA_PUBLIC_HOST: mediamtx
+      MEDIA_BROWSER_BASE: http://mediamtx:8889
+      MEDIA_HLS_BASE: http://mediamtx:8888
+    tmpfs: ["/app/data:uid=1000,gid=1000"]
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.3
+    volumes:
+      - ../../deploy/mediamtx.yml:/mediamtx.yml:ro
+  media-worker:
+    build: ../../media-worker
+    image: resolver-media-worker:browser-test
+    environment:
+      MEDIA_INTERNAL_KEY: isolated-browser-test-internal
+      MEDIA_MTX_HOST: mediamtx
+  fixture:
+    image: resolver-media-worker:browser-test
+    entrypoint: [node, /fixture/media-fixture.mjs]
+    volumes:
+      - ./media-fixture.mjs:/fixture/media-fixture.mjs:ro
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8092/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  browser:
+    image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+    init: true
+    ipc: host
+    working_dir: /app
+    volumes:
+      - ../..:/app
+    environment:
+      CI: '1'
+      BROWSER_MEDIA_TEST: '1'
+      BROWSER_EXTERNAL_APP: '1'
+      BROWSER_BASE_URL: http://resolver:4173
+      BROWSER_OUTPUT_DIR: test-results/media

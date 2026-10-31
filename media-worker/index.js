@@ -106,6 +106,7 @@ async function start(job) {
       /* A live publisher may appear after the job starts. */
     }
     if (job.closed) return;
+    job.transcoding = !!force;
     const args = [
       "-nostdin",
       "-protocol_whitelist",
@@ -196,6 +197,8 @@ const server = http.createServer(async (req, res) => {
           jobs: [...jobs.values()].map((j) => ({
             id: j.source.id,
             status: j.status,
+            transcoding: j.transcoding === true,
+            videoCodec: j.info?.streams?.find(s => s.codec_type === 'video')?.codec_name || null,
           })),
         }),
       );
@@ -203,7 +206,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (
       req.method !== "POST" ||
-      !["/probe", "/ensure", "/release"].includes(req.url)
+      !["/probe", "/ensure", "/release", "/drop"].includes(req.url)
     ) {
       res.writeHead(404).end("{}");
       return;
@@ -219,6 +222,12 @@ const server = http.createServer(async (req, res) => {
       !/^(legacy|[a-f0-9]{64})$/.test(consumer)
     )
       throw Error("Invalid lease");
+    if (req.url === "/drop") {
+      const existing = jobs.get(source.id);
+      if (existing) { stop(existing); jobs.delete(source.id); }
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     if (req.url === "/release") {
       const existing = jobs.get(source.id);
       existing?.consumers.delete(consumer);
@@ -235,13 +244,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     let job = jobs.get(source.id);
-    if (job && JSON.stringify(job.source) !== JSON.stringify(source)) {
+    if (job && ["id", "kind", "url", "username", "password", "allowPrivate", "transcode", "token"].some(field => job.source[field] !== source[field])) {
       stop(job);
       jobs.delete(source.id);
       job = null;
     }
+    if (job) job.source = source;
     if (!job) {
-      if (jobs.size >= 8) {
+      // Two four-video scenes plus their independent audio and handover leases.
+      if (jobs.size >= 12) {
         res
           .writeHead(429)
           .end(JSON.stringify({ error: "Active media limit reached" }));
