@@ -3,6 +3,21 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  installer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash -n install.sh && shellcheck install.sh
+      - run: node scripts/smoke-installer.mjs --with-media
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: installer-verification
+          path: test-results/installer-verification.json
+          if-no-files-found: ignore
   browser:
     uses: ./.github/workflows/browser.yml
   test:

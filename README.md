@@ -9,18 +9,22 @@
 
 ## 快速部署
 
-安装 Docker Compose，在源码目录执行：
+安装 Docker 和 Docker Compose 后执行，按提示填写服务器地址：
 
 ```bash
-cp deploy/platform.env.example .env
-# 填写管理员密码、随机媒体内部密钥、服务器局域网 IP。
-docker compose --env-file .env -f compose.platform.yaml pull
-docker compose --env-file .env -f compose.platform.yaml up -d --no-build
+curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/install.sh -o resolver-install.sh && bash resolver-install.sh
 ```
 
-打开 `http://服务器IP:4173/`。管理端用户名为 `admin`，密码为 `.env` 中的 `RESOLVER_ADMIN_KEY`。升级请保留原项目名及 `resolver-data` 数据卷。
+打开 `http://服务器IP:4173/`。默认安装到 `./resolver-web`；用户名为 `admin`，密码在该目录 `.env` 的 `RESOLVER_ADMIN_KEY` 中。
 
-默认使用 GitHub Actions 构建的 `main` 镜像，应用与媒体工作服务均支持 amd64 / arm64。`main` 是四模块平台的场馆验收版；稳定版 `latest` 仍为 v1.3.0。需要固定版本时，将两个镜像都改为同一 `sha-完整提交号` 标签。源码构建可使用 `up -d --build`。
+更新、查看状态：
+
+```bash
+bash resolver-web/manage.sh update
+bash resolver-web/manage.sh status
+```
+
+默认使用 GitHub Actions 构建的 `main` 镜像，支持 amd64 / arm64；更新自动备份，保留配置与数据。`main` 是四模块平台的场馆验收版，稳定版 `latest` 仍为 v1.3.0。[安装选项、更新与备份](doc/INSTALL.md) · [手动 Compose 部署](doc/PLATFORM.md)
 
 本地开发：
 

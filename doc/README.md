@@ -1,5 +1,7 @@
 # 文档
 
+- [一键安装与更新](INSTALL.md)：自动生成密钥、Compose 安装、更新备份与失败回退。
+
 - [操作说明书（在线）](使用指南.md) · [PDF 下载](使用指南.pdf)：DOMjudge 与 Hydro + CCS API 接入、共享赛事、Live、OBS、多屏模板、节目单、Resolver、现场应急及故障排查。
 - [简明部署与开发说明](PLATFORM.md)：完整 Compose、媒体网关与开发测试。
 - [部署补充](部署说明.md)：原 Resolver 发布镜像、Nginx / 1Panel、升级和备份。

@@ -4,6 +4,8 @@
 
 ## 部署
 
+快速安装、自动生成密钥及后续一键更新见 [一键安装与更新](INSTALL.md)。下面是手动 Compose 部署方式。
+
 安装 Docker Compose，在源码目录执行：
 
 ```bash
