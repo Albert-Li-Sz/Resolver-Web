@@ -5,6 +5,7 @@ import https from 'node:https';
 import { Readable } from 'node:stream';
 import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { LIMITS, inputError } from './limits.js';
+import { restrictedNetwork } from './network-policy.js';
 
 const private4 = new BlockList();
 for (const [address, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
@@ -49,6 +50,7 @@ function requestPinned(url, { address, family, signal, headers }) {
 export async function fetchRemoteBytes(input, {
   accept = 'application/json, application/x-ndjson, text/plain', timeoutMs = 25_000, maxBytes = LIMITS.feedBytes, fetchImpl = requestPinned, lookupImpl = lookup,
   allowedOrigins = (process.env.RESOLVER_FEED_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
+  restrictNetwork = restrictedNetwork(),
 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -58,7 +60,7 @@ export async function fetchRemoteBytes(input, {
     try { url = new URL(input); } catch { throw inputError('请提供完整的 http(s) 事件流地址'); }
     for (let redirects = 0; redirects <= 5; redirects++) {
       if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.href.length > 4096) throw inputError('远程地址协议或凭据无效');
-      const explicitlyAllowed = allowedOrigins.includes(url.origin);
+      const explicitlyAllowed = !restrictNetwork || allowedOrigins.includes(url.origin) || allowedOrigins.includes('*');
       if (!explicitlyAllowed && url.port && !['80', '443'].includes(url.port)) throw inputError('远程事件流仅允许 80/443 端口');
       const hostname = url.hostname.replace(/^\[|\]$/g, '');
       const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] : await lookupImpl(hostname, { all: true, verbatim: true });

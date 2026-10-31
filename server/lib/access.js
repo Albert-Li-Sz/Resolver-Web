@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { restrictedNetwork, requestOriginAllowed } from './network-policy.js';
 
 export function equalSecret(left, right) {
   if (typeof left !== 'string' || typeof right !== 'string') return false;
@@ -24,7 +25,7 @@ export function managementAccess(req, res, next) {
       res.setHeader('WWW-Authenticate', 'Basic realm="Resolver management", charset="UTF-8"');
       return res.status(401).json({ error: '配置中心需要管理员凭据（用户名 admin）' });
     }
-  } else {
+  } else if (restrictedNetwork()) {
     let localHost = false;
     try { localHost = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(`http://${req.get('Host')}`).hostname); }
     catch { /* Invalid Host is not an authorized local management origin. */ }
@@ -32,14 +33,7 @@ export function managementAccess(req, res, next) {
       return res.status(403).json({ error: '配置中心仅允许本机地址访问；局域网或域名主持请设置 RESOLVER_ADMIN_KEY' });
     }
   }
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-    const origin = req.get('Origin');
-    let sameHost = !origin;
-    try {
-      const parsed = new URL(origin);
-      sameHost = ['http:', 'https:'].includes(parsed.protocol) && parsed.host === req.get('Host');
-    } catch { /* A missing or malformed Origin is handled by sameHost. */ }
-    if (!sameHost || req.get('Sec-Fetch-Site') === 'cross-site') return res.status(403).json({ error: '不允许跨站管理请求' });
-  }
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !requestOriginAllowed(req, true))
+    return res.status(403).json({ error: '不允许跨站管理请求' });
   next();
 }

@@ -50,6 +50,8 @@ try {
   );
   for (const file of [
     "PLATFORM.md",
+    "INSTALL.md",
+    "NETWORK.md",
     "PLATFORM-VALIDATION.md",
     "platform-performance.json",
     "OLLAMA-VALIDATION.md",

@@ -319,14 +319,14 @@ function Connection({
             />
           </Field>
         ) : null}
-        <label className="check">
+        {state.networkPolicy !== "open" ? <label className="check">
           <input
             type="checkbox"
             checked={!!source.allowPrivate}
             onChange={(e) => change({ allowPrivate: e.target.checked })}
           />
           允许场馆内网地址
-        </label>
+        </label> : null}
         {dirty ? <p className="muted">有未保存的修改</p> : null}
         <div className="row">
           <Button

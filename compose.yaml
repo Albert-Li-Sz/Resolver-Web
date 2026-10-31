@@ -1,13 +1,17 @@
 services:
   resolver:
-    image: ghcr.io/albert-li-sz/resolver-web:${RESOLVER_IMAGE_TAG:-v1.3.0}
+    image: ghcr.io/albert-li-sz/resolver-web:${RESOLVER_IMAGE_TAG:-main}
     restart: unless-stopped
     ports:
-      - "${RESOLVER_BIND_ADDRESS:-127.0.0.1}:${RESOLVER_PORT:-4173}:4173"
+      - "${RESOLVER_BIND_ADDRESS:-0.0.0.0}:${RESOLVER_PORT:-4173}:4173"
     environment:
       HOST: 0.0.0.0
       PORT: 4173
-      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请在 .env 中设置管理员密钥}
+      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+      RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}
+      RESOLVER_ALLOWED_ORIGINS: ${RESOLVER_ALLOWED_ORIGINS:-}
+      RESOLVER_SECURITY_HEADERS: ${RESOLVER_SECURITY_HEADERS:-false}
       RESOLVER_MEDIA_ORIGINS: ${RESOLVER_MEDIA_ORIGINS:-}
       RESOLVER_FEED_ORIGINS: ${RESOLVER_FEED_ORIGINS:-}
       RESOLVER_DATA_DIR: /app/data

@@ -14,7 +14,6 @@ BIND_ADDRESS=0.0.0.0
 PROJECT=
 CHANNEL=
 MEDIA=1
-ASSUME_YES=0
 WAIT_SECONDS=120
 LOCKED=0
 STAGE=
@@ -22,6 +21,8 @@ BACKUP=
 RECOVER=0
 APPLIED=0
 COMPOSE=()
+INSTALLER_BASE_OVERRIDE=
+INSTALLER_IMAGES_OVERRIDE=
 SCRIPT_FILE=${BASH_SOURCE[0]:-}
 
 say() { printf '%s\n' "$*"; }
@@ -40,13 +41,13 @@ ICPC 赛事制作台安装与更新
 
 选项：
   --dir 路径        安装目录，默认 ./resolver-web；manage.sh 默认所在目录
-  --host IP或域名   展示电脑可访问的服务器地址，不含 http:// 或端口
+  --host IP或域名   可选媒体对外地址；网页及媒体默认跟随访问 IP / 域名
   --port 端口       网页端口，默认 4173
   --bind IP         监听地址，默认 0.0.0.0；本机使用可填 127.0.0.1
   --project 名称    新安装的 Compose 项目名，默认自动生成
   --tag 标签       main、sha-完整提交号或已发布版本；默认 main
   --no-media        新安装时仅启用应用，不启动媒体网关和转码服务
-  --yes             使用自动检测的服务器地址，不交互
+  --yes             兼容无交互参数，默认安装无需交互
   --wait-timeout 秒 服务健康检查等待时间，默认 120
   --help            显示帮助
 
@@ -61,7 +62,7 @@ INSTALL_OPTIONS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
-    --yes) ASSUME_YES=1; shift ;;
+    --yes) shift ;;
     --no-media) MEDIA=0; INSTALL_OPTIONS=1; shift ;;
     --dir|--host|--port|--bind|--project|--tag|--wait-timeout)
       if [ $# -lt 2 ] || [ -z "$2" ]; then fail "$1 缺少参数"; fi
@@ -111,9 +112,11 @@ compose() (
   unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES
   unset RESOLVER_ADMIN_KEY MEDIA_INTERNAL_KEY MEDIA_PUBLIC_HOST RESOLVER_PORT
   unset RESOLVER_BIND_ADDRESS MEDIA_BIND_ADDRESS RESOLVER_IMAGE MEDIA_WORKER_IMAGE
+  unset RESOLVER_NETWORK_POLICY RESOLVER_TRUST_PROXY RESOLVER_ALLOWED_ORIGINS RESOLVER_SECURITY_HEADERS
+  unset RESOLVER_FEED_ORIGINS RESOLVER_MEDIA_ORIGINS MEDIA_BROWSER_BASE MEDIA_HLS_BASE MEDIA_ICE_HOSTS
   if [ "$MEDIA" = 1 ]; then export COMPOSE_PROFILES=media; else export COMPOSE_PROFILES=; fi
   "${COMPOSE[@]}" --project-directory "$INSTALL_DIR" -p "$PROJECT" --env-file "$INSTALL_DIR/.env" \
-    -f "$INSTALL_DIR/compose.yaml" -f "$INSTALL_DIR/compose.override.yaml" "$@"
+    -f "${INSTALLER_BASE_OVERRIDE:-$INSTALL_DIR/compose.yaml}" -f "${INSTALLER_IMAGES_OVERRIDE:-$INSTALL_DIR/compose.override.yaml}" "$@"
 )
 load_state() {
   [ -f "$INSTALL_DIR/.install-state" ] || fail "该目录尚未由脚本安装，请先执行 install。"
@@ -138,6 +141,7 @@ cleanup() {
     say "操作未完成，正在恢复更新前的运行配置……"
     if [ "$APPLIED" = 1 ]; then
       cp "$BACKUP/compose.override.yaml" "$INSTALL_DIR/compose.override.yaml"
+      cp "$BACKUP/compose.yaml" "$INSTALL_DIR/compose.yaml"
       cp "$BACKUP/.install-state" "$INSTALL_DIR/.install-state"
     fi
     if compose up -d --no-build --pull never --wait --wait-timeout "$WAIT_SECONDS"; then
@@ -183,16 +187,6 @@ valid_host() {
   [[ $1 =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ && $1 != *..* && $1 != *- && $1 != *. && $1 != 0.0.0.0 ]] || return 1
   if [[ $1 =~ ^[0-9.]+$ ]]; then valid_ipv4 "$1"; fi
 }
-detect_host() {
-  local candidate=
-  if command -v ip >/dev/null 2>&1; then candidate=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++)if($i=="src"){print $(i+1);exit}}' || true); fi
-  if [ -z "$candidate" ] && command -v ipconfig >/dev/null 2>&1; then
-    local interface
-    interface=$(route -n get default 2>/dev/null | awk '/interface:/{print $2;exit}' || true)
-    if [ -n "$interface" ]; then candidate=$(ipconfig getifaddr "$interface" 2>/dev/null || true); fi
-  fi
-  printf '%s' "$candidate"
-}
 write_state() {
   printf 'FORMAT=1\nPROJECT=%s\nVOLUME=%s\nMEDIA=%s\nCHANNEL=%s\n' "$PROJECT" "$VOLUME" "$MEDIA" "$CHANNEL" > "$STAGE/state"
   mv "$STAGE/state" "$INSTALL_DIR/.install-state"
@@ -225,15 +219,28 @@ prepare_images() {
     [ "$revision" = "$worker_revision" ] || fail "应用与媒体镜像来自不同提交，请稍后重试；现有服务未变更。"
     GATEWAY_PIN=$(pull_image "$GATEWAY_IMAGE" bluenviron/mediamtx)
   fi
-  cat > "$STAGE/compose.override.yaml" <<IMAGES
-services:
-  resolver:
-    image: $APP_PIN
-  media-worker:
-    image: $WORKER_PIN
-  mediamtx:
-    image: $GATEWAY_PIN
-IMAGES
+  {
+    printf 'services:\n  resolver:\n    image: %s\n' "$APP_PIN"
+    cat <<'NETWORK'
+    environment:
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+      RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}
+      RESOLVER_ALLOWED_ORIGINS: ${RESOLVER_ALLOWED_ORIGINS:-}
+      RESOLVER_SECURITY_HEADERS: ${RESOLVER_SECURITY_HEADERS:-false}
+      RESOLVER_FEED_ORIGINS: ${RESOLVER_FEED_ORIGINS:-}
+      RESOLVER_MEDIA_ORIGINS: ${RESOLVER_MEDIA_ORIGINS:-}
+NETWORK
+    printf '  media-worker:\n    image: %s\n' "$WORKER_PIN"
+    cat <<'WORKER'
+    environment:
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+WORKER
+    printf '  mediamtx:\n    image: %s\n' "$GATEWAY_PIN"
+    cat <<'ICE'
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_ICE_HOSTS:-${MEDIA_PUBLIC_HOST:-}}
+ICE
+  } > "$STAGE/compose.override.yaml"
   say "构建提交：$revision"
 }
 backup_config() {
@@ -262,15 +269,8 @@ if [ "$COMMAND" = install ]; then
   VOLUME="$PROJECT-resolver-data"
   [ -z "$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT")" ] || fail "项目名已被其他容器使用，请换一个 --project。"
   if docker volume inspect "$VOLUME" >/dev/null 2>&1; then fail "数据卷 $VOLUME 已存在，请使用原安装目录更新，或选择新的项目名。"; fi
-  if [ -z "$PUBLIC_HOST" ]; then
-    PUBLIC_HOST=$(detect_host)
-    if [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
-      printf '展示电脑可访问的服务器 IP 或域名 [%s]：' "$PUBLIC_HOST"
-      read -r answer
-      PUBLIC_HOST=${answer:-$PUBLIC_HOST}
-    fi
-  fi
-  valid_host "$PUBLIC_HOST" || fail "请通过 --host 指定服务器 IPv4 地址或域名（不带协议和端口）。"
+  if [ "$PUBLIC_HOST" = 0.0.0.0 ]; then PUBLIC_HOST=; fi
+  if [ -n "$PUBLIC_HOST" ]; then valid_host "$PUBLIC_HOST" || fail "--host 请填写有效的 IPv4 地址或域名（不带协议和端口）。"; fi
   valid_ipv4 "$BIND_ADDRESS" || fail "--bind 请填写有效的 IPv4 监听地址。"
   prepare_images
   mkdir -p "$INSTALL_DIR/deploy"
@@ -283,6 +283,13 @@ MEDIA_PUBLIC_HOST=$PUBLIC_HOST
 RESOLVER_BIND_ADDRESS=$BIND_ADDRESS
 RESOLVER_PORT=$APP_PORT
 MEDIA_BIND_ADDRESS=$BIND_ADDRESS
+RESOLVER_NETWORK_POLICY=open
+RESOLVER_TRUST_PROXY=true
+RESOLVER_ALLOWED_ORIGINS=
+RESOLVER_SECURITY_HEADERS=false
+MEDIA_BROWSER_BASE=
+MEDIA_HLS_BASE=
+MEDIA_ICE_HOSTS=
 ENV
   cat > "$INSTALL_DIR/compose.yaml" <<'COMPOSE'
 services:
@@ -294,13 +301,17 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 4173
-      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请设置管理员密钥}
+      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+      RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}
+      RESOLVER_ALLOWED_ORIGINS: ${RESOLVER_ALLOWED_ORIGINS:-}
+      RESOLVER_SECURITY_HEADERS: ${RESOLVER_SECURITY_HEADERS:-false}
       RESOLVER_DATA_DIR: /app/data
       MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY:?请设置媒体内部密钥}
       MEDIA_WORKER_URL: http://media-worker:8091
-      MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:?请填写服务器地址}
-      MEDIA_BROWSER_BASE: http://${MEDIA_PUBLIC_HOST}:8889
-      MEDIA_HLS_BASE: http://${MEDIA_PUBLIC_HOST}:8888
+      MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:-}
+      MEDIA_BROWSER_BASE: ${MEDIA_BROWSER_BASE:-}
+      MEDIA_HLS_BASE: ${MEDIA_HLS_BASE:-}
     volumes:
       - resolver-data:/app/data
     security_opt: [no-new-privileges:true]
@@ -310,7 +321,7 @@ services:
     image: bluenviron/mediamtx:1.21.3
     restart: unless-stopped
     environment:
-      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_PUBLIC_HOST}
+      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_ICE_HOSTS:-${MEDIA_PUBLIC_HOST:-}}
     volumes:
       - ./deploy/mediamtx.yml:/mediamtx.yml:ro
     ports:
@@ -329,6 +340,7 @@ services:
     environment:
       MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY}
       MEDIA_MTX_HOST: mediamtx
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
     security_opt: [no-new-privileges:true]
 volumes:
   resolver-data:
@@ -361,17 +373,28 @@ GATEWAY
   write_state
   save_manager
   compose up -d --no-build --pull never --wait --wait-timeout "$WAIT_SECONDS"
-  say "安装完成：http://$PUBLIC_HOST:$APP_PORT/"
+  say "安装完成：监听 $BIND_ADDRESS:$APP_PORT，可通过本机 IP 或域名访问。"
+  say "本机访问：http://127.0.0.1:$APP_PORT/"
   say "管理员：admin；密码保存在 $INSTALL_DIR/.env 的 RESOLVER_ADMIN_KEY。"
   say "更新：bash \"$INSTALL_DIR/manage.sh\" update"
 elif [ "$COMMAND" = update ]; then
-  compose config --quiet
   prepare_images
   backup_config
+  # Upgrade only the four expressions emitted by the original installer.
+  # Other custom Compose settings and the complete .env remain untouched.
+  # shellcheck disable=SC2016
+  sed \
+    -e 's|RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请设置管理员密钥}|RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}|' \
+    -e 's|MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:?请填写服务器地址}|MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:-}|' \
+    -e 's|MEDIA_BROWSER_BASE: http://${MEDIA_PUBLIC_HOST}:8889|MEDIA_BROWSER_BASE: ${MEDIA_BROWSER_BASE:-}|' \
+    -e 's|MEDIA_HLS_BASE: http://${MEDIA_PUBLIC_HOST}:8888|MEDIA_HLS_BASE: ${MEDIA_HLS_BASE:-}|' \
+    "$INSTALL_DIR/compose.yaml" > "$STAGE/compose.yaml"
+  INSTALLER_BASE_OVERRIDE="$STAGE/compose.yaml" INSTALLER_IMAGES_OVERRIDE="$STAGE/compose.override.yaml" compose config --quiet
   RECOVER=1
+  APPLIED=1
+  mv "$STAGE/compose.yaml" "$INSTALL_DIR/compose.yaml"
   compose stop resolver
   backup_data
-  APPLIED=1
   mv "$STAGE/compose.override.yaml" "$INSTALL_DIR/compose.override.yaml"
   compose up -d --no-build --pull never --wait --wait-timeout "$WAIT_SECONDS"
   write_state

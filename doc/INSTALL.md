@@ -10,21 +10,21 @@
 curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/install.sh -o resolver-install.sh && bash resolver-install.sh
 ```
 
-按提示确认展示电脑能访问的服务器 IPv4 地址或域名。默认目录为当前目录下的 `resolver-web`，网页端口为 `4173`；自动生成管理员密码和媒体内部密钥，启动应用、MediaMTX 和媒体工作服务。
+默认监听 `0.0.0.0:4173`，无需填写固定 IP 或域名。可通过任意本机 IP 或指向本机的域名访问。默认目录为当前目录下的 `resolver-web`；自动生成管理员密码和媒体内部密钥，启动应用、MediaMTX 和媒体工作服务。
 
 无交互安装或指定目录：
 
 ```bash
-bash resolver-install.sh install --dir /opt/resolver-web --host 192.168.1.10 --yes
+bash resolver-install.sh install --dir /opt/resolver-web --yes
 ```
 
-打开 `http://192.168.1.10:4173/`，用户名为 `admin`。查看生成的管理员密码：
+打开 `http://服务器IP:4173/`，用户名为 `admin`。查看生成的管理员密码：
 
 ```bash
 sed -n 's/^RESOLVER_ADMIN_KEY=//p' /opt/resolver-web/.env
 ```
 
-仅在本机使用时加 `--host 127.0.0.1 --bind 127.0.0.1`；不使用视频时加 `--no-media`。网页端口可通过 `--port 8080` 修改。完整媒体部署还需放行 TCP 8554、1935、8888、8889、8189，以及 UDP 8890、8189。
+仅在本机使用时加 `--host 127.0.0.1 --bind 127.0.0.1`；不使用视频时加 `--no-media`。网页端口可通过 `--port 8080` 修改。`--host` 仅用于指定可选的媒体对外地址，不是访问白名单。完整媒体部署还需放行 TCP 8554、1935、8888、8889、8189，以及 UDP 8890、8189。
 
 默认使用已发布的 `main` 镜像，支持 amd64 / arm64。脚本校验应用和媒体镜像来自同一提交，再保存实际镜像摘要，避免重启时发生隐式升级。`main` 是四模块平台的场馆验收版；稳定版 `latest` 仍为原 v1.3.0。
 
@@ -75,7 +75,7 @@ docker compose ps
 docker compose logs --tail 100 -f
 ```
 
-`.env` 保存地址、端口、密钥和媒体启用状态；`compose.yaml` 保存服务配置；`compose.override.yaml` 保存镜像摘要；`.install-state` 固定管理脚本的项目、数据卷和更新标签。更新不覆盖手工修改的 `.env`、`compose.yaml` 或网关配置；不要手动修改脚本管理的镜像摘要和安装记录。
+`.env` 保存地址、端口、密钥和媒体启用状态；`compose.yaml` 保存服务配置；`compose.override.yaml` 保存镜像摘要；`.install-state` 固定管理脚本的项目、数据卷和更新标签。更新保留 `.env` 和网关配置，并兼容迁移旧模板中固定媒体地址的四处配置；其他 Compose 设置原样保留。不要手动修改脚本管理的镜像摘要和安装记录。
 
 ## 已有部署与恢复
 
@@ -86,3 +86,5 @@ docker compose logs --tail 100 -f
 需要恢复赛事数据时，先停止应用，确认目标数据卷和备份时间，再人工恢复。不要直接在运行中的比赛上覆盖数据。如果只是镜像启动失败，优先查看日志和脚本给出的回退结果。
 
 若机器被断电或安装进程被强制结束，确认没有仍在运行的安装进程后，可移除安装目录中的空目录 `.install-lock`，再执行 `start` 或 `update`。普通错误及 Ctrl+C 会自动释放锁。
+
+网络默认开放；可选登录、跨域来源、反向代理和内网策略见 [网络配置](NETWORK.md)。

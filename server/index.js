@@ -13,17 +13,21 @@ import { deleteConfig, getConfig, listConfigs, saveConfig } from './lib/store.js
 import { equalSecret, managementAccess } from './lib/access.js';
 import { engineJob } from './lib/engine-job.js';
 import { LIMITS } from './lib/limits.js';
+import { networkAccess, networkPolicy, trustProxy, securityHeadersEnabled } from './lib/network-policy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const { version: VERSION } = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const PORT = Number(process.env.PORT || 4173);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();
+networkPolicy();
+app.set('trust proxy', trustProxy());
 app.disable('x-powered-by');
+app.use(networkAccess);
 app.use((req, res, next) => {
-  res.set({
+  if (securityHeadersEnabled()) res.set({
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self'; connect-src 'self' data: http: https:; media-src 'self' blob: http: https:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'",

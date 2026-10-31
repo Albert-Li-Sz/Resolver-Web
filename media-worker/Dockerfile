@@ -2,6 +2,7 @@ FROM node:24-alpine
 RUN apk add --no-cache ffmpeg tini
 WORKDIR /app
 COPY --chown=node:node index.js ./index.mjs
+COPY --chown=node:node source.mjs ./source.mjs
 RUN ffmpeg -L > /app/FFMPEG-LICENSE.txt 2>&1
 USER node
 EXPOSE 8091

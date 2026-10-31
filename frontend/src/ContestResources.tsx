@@ -139,7 +139,7 @@ export function Sources({ state, run }: { state: AnyRecord; run: Run }) {
                 ]}
               />
             </Field>
-            <label className="check">
+            {state.networkPolicy !== "open" ? <label className="check">
               <input
                 type="checkbox"
                 checked={form.allowPrivate}
@@ -148,7 +148,7 @@ export function Sources({ state, run }: { state: AnyRecord; run: Run }) {
                 }
               />
               允许场馆内网来源
-            </label>
+            </label> : null}
             <label className="check">
               <input
                 type="checkbox"

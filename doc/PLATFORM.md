@@ -1,6 +1,6 @@
 # 赛事制作台
 
-四个入口：Resolver（滚榜）、Live（导播）、PresentationAdmin（多屏管理）、Presentations（展示屏）。管理端使用同一管理员密码，用户名 `admin`；首页、展示屏和只读输出可直接打开。
+四个入口：Resolver（滚榜）、Live（导播）、PresentationAdmin（多屏管理）、Presentations（展示屏）。管理端可配置统一管理员密码，设置后用户名为 `admin`；开放策略下密码留空可直接访问。首页、展示屏和只读输出可直接打开。
 
 ## 部署
 
@@ -10,24 +10,24 @@
 
 ```bash
 cp deploy/platform.env.example .env
-# 设置管理员密码、随机媒体内部密钥、服务器场馆局域网 IP。
+# 按需设置管理员密码，填写随机媒体内部密钥。
 docker compose --env-file .env -f compose.platform.yaml pull
 docker compose --env-file .env -f compose.platform.yaml up -d --no-build
 ```
 
-访问 `http://服务器IP:4173/`。媒体需要场馆设备可访问 TCP 8554、1935、8888、8889、8189，UDP 8890、8189。WebRTC 默认使用场馆 IP；无需公网穿透或 TURN。
+默认监听 `0.0.0.0:4173`，可通过任意本机 IP 或域名访问。网络及安全策略由部署者配置，详见 [网络配置](NETWORK.md)。媒体需要场馆设备可访问 TCP 8554、1935、8888、8889、8189，UDP 8890、8189。WebRTC 默认使用场馆 IP；无需公网穿透或 TURN。
 
 默认镜像为 `ghcr.io/albert-li-sz/resolver-web:main` 与 `ghcr.io/albert-li-sz/resolver-web-media-worker:main`，均支持 `linux/amd64`、`linux/arm64`。这是主分支的场馆验收版；OBS 与真实场馆验收完成前，稳定版 `latest` 保持 v1.3.0。固定部署时，将 `.env` 中两个镜像的标签同时改为 `sha-完整提交号`，或使用构建产物 `image-digests` 中的摘要。升级旧 `.env` 时补上这两个镜像字段，否则源码 Compose 会继续使用本地镜像名。需要源码构建时执行 `up -d --build`。
 
 镜像通过 GitHub Actions 的 **Release containers → Run workflow → main** 手动构建。每次先通过 Node 22/24、页面、像素、真实媒体测试，再在两种原生架构上构建应用和媒体镜像，验证启动及重启，匿名检查 GHCR 后更新 `main`。提交号标签用于固定部署；此流程不创建稳定版本或改动 `latest`。GitHub 版本标签发布流程继续用于正式版本。
 
-数据保存在 `resolver-data` 命名卷。升级需保留原 Compose 项目名与命名卷；不要使用 `down -v`。从 v1.3.0 升级时保留管理员密码，并补充 `MEDIA_INTERNAL_KEY`、`MEDIA_PUBLIC_HOST`；发布包的镜像覆盖字段为 `RESOLVER_IMAGE` 和 `MEDIA_WORKER_IMAGE`。已有单服务部署的 Resolver 数据目录可继续使用，新平台数据单独存放在 `data/platform/`。媒体控制接口和 FFmpeg 工作服务只在容器网络内开放，不挂载 Docker socket。
+数据保存在 `resolver-data` 命名卷。升级需保留原 Compose 项目名与命名卷；不要使用 `down -v`。从 v1.3.0 升级时保留管理员密码，并补充 `MEDIA_INTERNAL_KEY`；发布包的镜像覆盖字段为 `RESOLVER_IMAGE` 和 `MEDIA_WORKER_IMAGE`。已有单服务部署的 Resolver 数据目录可继续使用，新平台数据单独存放在 `data/platform/`。媒体控制接口和 FFmpeg 工作服务只在容器网络内开放，不挂载 Docker socket。
 
 管理界面采用 Ollama 的白色、细边框和圆角控件风格。Live 节目画面使用原版 Live-v3 组件，展示模板按 ICPC Tools v2.6.1331 的字体、坐标与绘制规则实现。
 
 ## 赛事中心
 
-在 `/contest/` 创建赛事，选择 Contest API 根地址与比赛 ID，或持续 NDJSON 地址；认证方式可选无认证、Basic 或 Bearer。场馆内网地址需要勾选允许内网访问。“测试填写内容”无需先保存。
+在 `/contest/` 创建赛事，选择 Contest API 根地址与比赛 ID，或持续 NDJSON 地址；认证方式可选无认证、Basic 或 Bearer。默认允许内网、回环和任意域名来源；只有启用 `restricted` 网络策略时才显示允许内网的选项。“测试填写内容”无需先保存。
 
 新建或导入赛事后，点击“切换当前赛事”才会全端生效。编辑其他赛事不会切换正在播放的赛事；当前赛事的连接保存后立即重连。“停止连接”保留地址、凭据和已有数据，“重新连接”继续接收。每个实时赛事共用服务端连接，管理员换页面或新开展示屏无需再次配置。
 

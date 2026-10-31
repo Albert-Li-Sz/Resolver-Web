@@ -1,5 +1,7 @@
 # 文档
 
+- [网络配置](NETWORK.md)：监听、来源策略、反向代理、可选登录与媒体地址。
+
 - [一键安装与更新](INSTALL.md)：自动生成密钥、Compose 安装、更新备份与失败回退。
 
 - [操作说明书（在线）](使用指南.md) · [PDF 下载](使用指南.pdf)：DOMjudge 与 Hydro + CCS API 接入、共享赛事、Live、OBS、多屏模板、节目单、Resolver、现场应急及故障排查。

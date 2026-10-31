@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchFeedText } from '../server/lib/remote-feed.js';
+process.env.RESOLVER_NETWORK_POLICY = 'restricted';
 const lookupImpl = async () => [{ address: '93.184.215.14', family: 4 }];
 
 test('remote feed decodes UTF-8 across chunk boundaries', async () => {

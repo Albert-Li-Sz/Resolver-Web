@@ -9,6 +9,7 @@ import { DEFAULT_SCHOOL_LOGO } from '../public/js/logos.js';
 
 const directory = await mkdtemp(path.join(tmpdir(), 'resolver-api-'));
 process.env.RESOLVER_DATA_DIR = directory;
+process.env.RESOLVER_NETWORK_POLICY = 'restricted';
 const { app } = await import('../server/index.js');
 after(() => rm(directory, { recursive: true, force: true }));
 

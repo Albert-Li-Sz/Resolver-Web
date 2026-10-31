@@ -19,6 +19,8 @@ import { equalSecret } from "../lib/access.js";
 import { outputProfile } from "../../public/js/output-profile.js";
 import { readHealth, MediaMonitor } from "./health.js";
 import { currentContent } from "./emergency.js";
+import { networkPolicy, restrictedNetwork } from "../lib/network-policy.js";
+import { mediaAddresses } from "./media-address.js";
 export async function createPlatform() {
   const store = new PlatformStore();
   await store.restore();
@@ -90,6 +92,7 @@ export async function createPlatform() {
   router.get("/platform", (_q, r) =>
     r.json({
       ...store.admin(),
+      networkPolicy: networkPolicy(),
       templates,
       feed: feeds.status,
       publicState: store.publicState(),
@@ -100,6 +103,7 @@ export async function createPlatform() {
     wrap((q, r) =>
       stream(q, r, () => ({
         ...store.admin(),
+        networkPolicy: networkPolicy(),
         templates,
         feed: feeds.status,
         publicState: store.publicState(),
@@ -628,7 +632,7 @@ export async function createPlatform() {
     wrap((q, r) => {
       const m = store.state.media.find((x) => x.id === q.params.id);
       if (!m || m.kind !== "publish") throw inputError("不是发布来源");
-      const host = process.env.MEDIA_PUBLIC_HOST || q.hostname;
+      const host = mediaAddresses(q).publishHost;
       r.json({
         rtmp: `rtmp://${host}:1935/source-${m.id}?user=publisher&pass=${m.token}`,
         srt: `srt://${host}:8890?streamid=publish:source-${m.id}:publisher:${m.token}`,
@@ -654,11 +658,10 @@ export async function createPlatform() {
     if (!key) throw inputError("媒体网关尚未配置", 503);
     const payload = `play-${m.id}:${expiry}`;
     const token = hash(`${key}:${payload}`);
-    const base =
-      process.env.MEDIA_BROWSER_BASE || `${q.protocol}://${q.hostname}:8889`;
+    const addresses = mediaAddresses(q);
     r.json({
-      whep: `${base}/play-${m.id}/whep`,
-      hls: `${process.env.MEDIA_HLS_BASE || `${q.protocol}://${q.hostname}:8888`}/play-${m.id}/index.m3u8`,
+      whep: `${addresses.whepBase}/play-${m.id}/whep`,
+      hls: `${addresses.hlsBase}/play-${m.id}/index.m3u8`,
       user: String(expiry),
       password: token,
       expiresAt: expiry,
@@ -703,7 +706,8 @@ export async function createPlatform() {
     }),
   );
   function limit(req, kind, max) {
-    const key = `${kind}:${req.socket.remoteAddress}`;
+    if (!restrictedNetwork()) return;
+    const key = `${kind}:${req.ip}`;
     const now = Date.now();
     const old = rates.get(key);
     const item =

@@ -25,9 +25,10 @@ function run(command, args, extra = {}) {
 }
 let installed = false;
 try {
-  await run('bash', ['install.sh', 'install', '--dir', dir, '--host', '127.0.0.1', '--port', String(port), '--bind', '127.0.0.1', '--project', project, '--yes', ...(media ? [] : ['--no-media'])]);
+  await run('bash', ['install.sh', 'install', '--dir', dir, '--port', String(port), '--bind', '127.0.0.1', '--project', project, '--yes', ...(media ? [] : ['--no-media'])]);
   installed = true;
   const originalEnv = await readFile(path.join(dir, '.env'), 'utf8');
+  assert.match(originalEnv, /^MEDIA_PUBLIC_HOST=$/m, 'installation must not require a fixed IP or domain');
   const key = originalEnv.match(/^RESOLVER_ADMIN_KEY=(.*)$/m)[1];
   const env = { RESOLVER_ADMIN_KEY: key, RESOLVER_SMOKE_STATE: path.join(root, 'resolver.json'), PLATFORM_SMOKE_STATE: path.join(root, 'platform.json') };
   await run(process.execPath, ['scripts/smoke.mjs', base], env);

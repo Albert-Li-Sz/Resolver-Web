@@ -4,17 +4,23 @@ services:
     image: ${RESOLVER_IMAGE:-resolver-web:platform-local}
     restart: unless-stopped
     ports:
-      - "${RESOLVER_BIND_ADDRESS:-127.0.0.1}:${RESOLVER_PORT:-4173}:4173"
+      - "${RESOLVER_BIND_ADDRESS:-0.0.0.0}:${RESOLVER_PORT:-4173}:4173"
     environment:
       HOST: 0.0.0.0
       PORT: 4173
-      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:?请设置管理员密钥}
+      RESOLVER_ADMIN_KEY: ${RESOLVER_ADMIN_KEY:-}
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
+      RESOLVER_TRUST_PROXY: ${RESOLVER_TRUST_PROXY:-true}
+      RESOLVER_ALLOWED_ORIGINS: ${RESOLVER_ALLOWED_ORIGINS:-}
+      RESOLVER_SECURITY_HEADERS: ${RESOLVER_SECURITY_HEADERS:-false}
+      RESOLVER_FEED_ORIGINS: ${RESOLVER_FEED_ORIGINS:-}
+      RESOLVER_MEDIA_ORIGINS: ${RESOLVER_MEDIA_ORIGINS:-}
       RESOLVER_DATA_DIR: /app/data
       MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY:?请设置媒体内部密钥}
       MEDIA_WORKER_URL: http://media-worker:8091
-      MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:?请填写场馆服务器 IP}
-      MEDIA_BROWSER_BASE: http://${MEDIA_PUBLIC_HOST}:8889
-      MEDIA_HLS_BASE: http://${MEDIA_PUBLIC_HOST}:8888
+      MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:-}
+      MEDIA_BROWSER_BASE: ${MEDIA_BROWSER_BASE:-}
+      MEDIA_HLS_BASE: ${MEDIA_HLS_BASE:-}
     volumes:
       - resolver-data:/app/data
     security_opt: [no-new-privileges:true]
@@ -23,7 +29,7 @@ services:
     image: bluenviron/mediamtx:1.21.3
     restart: unless-stopped
     environment:
-      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_PUBLIC_HOST}
+      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_ICE_HOSTS:-${MEDIA_PUBLIC_HOST:-}}
     volumes:
       - ./deploy/mediamtx.yml:/mediamtx.yml:ro
     ports:
@@ -42,6 +48,7 @@ services:
     environment:
       MEDIA_INTERNAL_KEY: ${MEDIA_INTERNAL_KEY}
       MEDIA_MTX_HOST: mediamtx
+      RESOLVER_NETWORK_POLICY: ${RESOLVER_NETWORK_POLICY:-open}
     security_opt: [no-new-privileges:true]
 volumes:
   resolver-data:

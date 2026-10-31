@@ -177,3 +177,34 @@ test('invalid host, port and project input never pulls images or starts containe
   ]) assert.notEqual(f.install(...args).status, 0, args.join(' '));
   assert.ok(!(await f.calls()).some(c => c.args[0] === 'pull' || c.args.includes('up') && !c.args.includes('--help')));
 });
+
+test('default installation binds all interfaces and requires no fixed IP or domain', async t => {
+  const f = await fixture(t);
+  const result = f.invoke(['install', '--no-media', '--yes', '--project', 'installer-test']);
+  assert.equal(result.status, 0, result.stderr);
+  const env = await readFile(path.join(f.dir, '.env'), 'utf8');
+  assert.match(env, /^RESOLVER_BIND_ADDRESS=0\.0\.0\.0$/m);
+  assert.match(env, /^MEDIA_PUBLIC_HOST=$/m);
+  assert.match(env, /^RESOLVER_NETWORK_POLICY=open$/m);
+  const config = await readFile(path.join(f.dir, 'compose.yaml'), 'utf8');
+  assert.match(config, /MEDIA_BROWSER_BASE: \$\{MEDIA_BROWSER_BASE:-\}/);
+  assert.doesNotMatch(config, /http:\/\/192\.168/);
+});
+
+test('updating an original installer deployment migrates fixed media addresses while preserving custom settings', async t => {
+  const f = await fixture(t);
+  assert.equal(f.install().status, 0);
+  const file = path.join(f.dir, 'compose.yaml');
+  let config = await readFile(file, 'utf8');
+  config = config.replace('MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:-}', 'MEDIA_PUBLIC_HOST: ${MEDIA_PUBLIC_HOST:?请填写服务器地址}')
+    .replace('MEDIA_BROWSER_BASE: ${MEDIA_BROWSER_BASE:-}', 'MEDIA_BROWSER_BASE: http://${MEDIA_PUBLIC_HOST}:8889')
+    .replace('MEDIA_HLS_BASE: ${MEDIA_HLS_BASE:-}', 'MEDIA_HLS_BASE: http://${MEDIA_PUBLIC_HOST}:8888');
+  config += '\n# operator custom setting\n';
+  await writeFile(file, config);
+  assert.equal(f.invoke(['update']).status, 0);
+  const updated = await readFile(file, 'utf8');
+  assert.match(updated, /MEDIA_BROWSER_BASE: \$\{MEDIA_BROWSER_BASE:-\}/);
+  assert.match(updated, /# operator custom setting/);
+  const backup = (await readdir(path.join(f.dir, 'backups')))[0];
+  assert.equal(await readFile(path.join(f.dir, 'backups', backup, 'compose.yaml'), 'utf8'), config);
+});

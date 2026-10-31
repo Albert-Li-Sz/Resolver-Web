@@ -4,6 +4,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { isPublicAddress } from "../lib/remote-feed.js";
 import { inputError } from "../lib/limits.js";
+import { restrictedNetwork } from "../lib/network-policy.js";
 export async function checkedURL(
   input,
   allowPrivate = false,
@@ -25,7 +26,7 @@ export async function checkedURL(
     !addresses.length ||
     addresses.some(
       (a) =>
-        !isPublicAddress(a.address) && (!allowPrivate || !isPrivate(a.address)),
+        restrictedNetwork() && !isPublicAddress(a.address) && (!allowPrivate || !isPrivate(a.address)),
     )
   )
     throw inputError("来源地址不允许访问；场馆内网来源需明确启用内网访问");

@@ -9,13 +9,13 @@
 
 ## 快速部署
 
-安装 Docker 和 Docker Compose 后执行，按提示填写服务器地址：
+安装 Docker 和 Docker Compose 后直接执行：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Albert-Li-Sz/Resolver-Web/main/install.sh -o resolver-install.sh && bash resolver-install.sh
 ```
 
-打开 `http://服务器IP:4173/`。默认安装到 `./resolver-web`；用户名为 `admin`，密码在该目录 `.env` 的 `RESOLVER_ADMIN_KEY` 中。
+默认监听 `0.0.0.0:4173`，可通过任意本机 IP 或指向本机的域名访问。默认安装到 `./resolver-web`；用户名为 `admin`，密码在该目录 `.env` 的 `RESOLVER_ADMIN_KEY` 中。
 
 更新、查看状态：
 
@@ -25,6 +25,8 @@ bash resolver-web/manage.sh status
 ```
 
 默认使用 GitHub Actions 构建的 `main` 镜像，支持 amd64 / arm64；更新自动备份，保留配置与数据。`main` 是四模块平台的场馆验收版，稳定版 `latest` 仍为 v1.3.0。[安装选项、更新与备份](doc/INSTALL.md) · [手动 Compose 部署](doc/PLATFORM.md)
+
+网络访问默认开放；来源限制、反向代理和安全策略由部署者配置，见[网络配置](doc/NETWORK.md)。
 
 本地开发：
 

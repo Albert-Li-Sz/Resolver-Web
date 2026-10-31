@@ -5,6 +5,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 const directory = await mkdtemp(path.join(tmpdir(), "icpc-platform-api-"));
 process.env.RESOLVER_DATA_DIR = directory;
+process.env.RESOLVER_NETWORK_POLICY = "restricted";
 process.env.RESOLVER_ADMIN_KEY = "platform-test-key";
 const { app, platform } = await import("../server/index.js");
 after(async () => {

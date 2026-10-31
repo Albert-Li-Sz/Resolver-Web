@@ -1,51 +1,19 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { lookup } from "node:dns/promises";
 import { timingSafeEqual } from "node:crypto";
+import { mediaInput } from "./source.mjs";
 const key = process.env.MEDIA_INTERNAL_KEY;
 if (!key) throw Error("MEDIA_INTERNAL_KEY is required");
 const host = process.env.MEDIA_MTX_HOST || "mediamtx";
+const networkPolicy = process.env.RESOLVER_NETWORK_POLICY || "open";
+if (!["open", "restricted"].includes(networkPolicy)) throw Error("RESOLVER_NETWORK_POLICY must be open or restricted");
 const jobs = new Map();
 const equal = (a, b) =>
   typeof a === "string" &&
   Buffer.byteLength(a) === Buffer.byteLength(b) &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 async function input(source) {
-  if (!/^[a-f0-9]{32}$/.test(source.id)) throw Error("Invalid source");
-  if (source.kind === "publish")
-    return `rtsp://worker:${encodeURIComponent(key)}@${host}:8554/source-${source.id}`;
-  const u = new URL(source.url);
-  if (
-    !["rtsp:", "rtmp:", "srt:", "http:", "https:"].includes(u.protocol) ||
-    u.username ||
-    u.password
-  )
-    throw Error("Invalid protocol");
-  const name = u.hostname.replace(/^\[|\]$/g, "");
-  const addresses = await lookup(name, { all: true });
-  if (
-    !addresses.length ||
-    addresses.some(
-      (a) =>
-        a.address === "::1" ||
-        a.address.startsWith("127.") ||
-        a.address.startsWith("169.254.") ||
-        a.address.startsWith("fe80:") ||
-        a.address === "0.0.0.0" ||
-        a.address === "::",
-    )
-  )
-    throw Error("Forbidden source");
-  const a = addresses[0].address;
-  const privateAddress =
-    /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|f[cd])/i.test(a);
-  if (privateAddress && !source.allowPrivate)
-    throw Error("Private source not allowed");
-  // Preserve TLS hostname for HTTPS. The application validates sources before issuing this internal request.
-  if (u.protocol !== "https:") u.hostname = a.includes(":") ? `[${a}]` : a;
-  if (source.username) u.username = source.username;
-  if (source.password) u.password = source.password;
-  return u.href;
+  return mediaInput(source, { key, host, networkPolicy });
 }
 async function probe(source) {
   const url = await input(source);

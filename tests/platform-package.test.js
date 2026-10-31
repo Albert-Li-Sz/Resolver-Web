@@ -68,6 +68,8 @@ test("deployment package includes both pinned images, gateway configuration, gui
       1000,
   );
   for (const file of [
+    "INSTALL.md",
+    "NETWORK.md",
     "OLLAMA-VALIDATION.md",
     "ollama-pixel-comparison.json",
     "ollama-performance.json",

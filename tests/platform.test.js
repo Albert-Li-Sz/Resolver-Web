@@ -252,7 +252,10 @@ test("stream manager processes split lines and stops the previous source on work
   });
   assert.equal(manager.status.state, "stopped");
 });
-test("remote inputs enforce explicit private LAN access and deny metadata/loopback even when enabled", async () => {
+test("restricted remote inputs enforce explicit private LAN access and deny metadata/loopback even when enabled", async (t) => {
+  const old = process.env.RESOLVER_NETWORK_POLICY;
+  process.env.RESOLVER_NETWORK_POLICY = "restricted";
+  t.after(() => { if (old === undefined) delete process.env.RESOLVER_NETWORK_POLICY; else process.env.RESOLVER_NETWORK_POLICY = old; });
   for (const url of [
     "http://127.0.0.1/",
     "http://169.254.169.254/",
